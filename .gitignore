@@ -3,3 +3,4 @@ __pycache__/
 .venv/
 sales_bot/calls/
 sales_bot/do_not_call.txt
+sales_bot.zip
