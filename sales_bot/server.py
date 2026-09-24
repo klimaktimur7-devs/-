@@ -26,6 +26,18 @@ CALLS_DIR.mkdir(exist_ok=True)
 CFG = yaml.safe_load((BASE / "config.yaml").read_text(encoding="utf-8"))
 SYSTEM = build_system_prompt(CFG)
 FALLBACK_BETA = "server-side-fallback-2026-07-01"
+
+def model_params(effort: str) -> dict:
+    """Haiku не поддерживает effort; серверный фоллбэк нужен только старшим моделям."""
+    model = CFG["model"]
+    params = {"model": model}
+    if not model.startswith("claude-haiku"):
+        params["output_config"] = {"effort": effort}
+    if model.startswith(("claude-opus", "claude-fable")):
+        params |= {"betas": [FALLBACK_BETA], "fallbacks": "default"}
+    return params
+
+
 SORRY = "Вибачте, трохи погано чути. Я передам ваш номер менеджеру, він вам зателефонує. Гарного дня! " + END_MARKER
 
 client = anthropic.AsyncAnthropic()
@@ -94,13 +106,10 @@ async def turn(t: Turn):
         spoken = ""
         try:
             async with client.beta.messages.stream(
-                model=CFG["model"],
+                **model_params(CFG["effort"]),
                 max_tokens=2000,
                 system=SYSTEM,
                 messages=call["messages"],
-                output_config={"effort": CFG["effort"]},
-                betas=[FALLBACK_BETA],
-                fallbacks="default",
             ) as stream:
                 async for chunk in stream.text_stream:
                     spoken += chunk
@@ -148,6 +157,12 @@ SUMMARY_SCHEMA = {
 }
 
 
+def summary_params() -> dict:
+    params = model_params("low")
+    params.setdefault("output_config", {})["format"] = {"type": "json_schema", "schema": SUMMARY_SCHEMA}
+    return params
+
+
 @app.post("/api/end")
 async def end(ref: CallRef):
     call = calls.pop(ref.call_id, None)
@@ -161,11 +176,8 @@ async def end(ref: CallRef):
     if call["transcript"]:
         try:
             resp = await client.beta.messages.create(
-                model=CFG["model"],
+                **summary_params(),
                 max_tokens=4000,
-                output_config={"effort": "low", "format": {"type": "json_schema", "schema": SUMMARY_SCHEMA}},
-                betas=[FALLBACK_BETA],
-                fallbacks="default",
                 messages=[{"role": "user", "content":
                            "Ось розшифровка дзвінка з продажу сайтів. Склади підсумок російською мовою. "
                            "Якщо поля не відомі — пиши порожній рядок. outcome=do_not_call, якщо людина "

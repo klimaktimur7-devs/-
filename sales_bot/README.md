@@ -21,7 +21,7 @@
 
 ## Запуск
 
-1. Нужен Python 3.10+ и ключ Claude API (https://console.anthropic.com → API Keys, API платный).
+1. Нужен Python 3.10+ и ключ Claude API (https://console.anthropic.com → API Keys). API платный: на модели по умолчанию (Haiku) это примерно $0.03–0.05 за звонок. Модель меняется в `config.yaml`.
 2. Установка:
    ```bash
    cd sales_bot
