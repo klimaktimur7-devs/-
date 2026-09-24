@@ -48,7 +48,8 @@ provider: "gemini"
 providers:
   gemini:     # ключ: https://aistudio.google.com/apikey
     base_url: "https://generativelanguage.googleapis.com/v1beta/openai/"
-    model: "gemini-2.5-flash"     # актуальные названия смотри в AI Studio
+    model: "gemini-3.6-flash"     # актуальные названия смотри в AI Studio
+    reasoning_effort: "minimal"   # быстрее отвечает; если модель ругается на это — поставь "low"
     key_env: "GEMINI_API_KEY"
   groq:       # ключ: https://console.groq.com/keys
     base_url: "https://api.groq.com/openai/v1"

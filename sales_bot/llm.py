@@ -63,11 +63,13 @@ class OpenAICompatLLM:
         if not key:
             raise SystemExit(f"Нет ключа: задай переменную окружения {provider['key_env']} (см. README).")
         self.model = provider["model"]
+        # Меньше «размышлений» = быстрее ответ. У разных моделей свои значения.
+        self.extra = {"reasoning_effort": provider["reasoning_effort"]} if provider.get("reasoning_effort") else {}
         self.client = AsyncOpenAI(base_url=provider["base_url"], api_key=key)
 
     async def reply(self, system: str, messages: list, sorry: str):
         stream = await self.client.chat.completions.create(
-            model=self.model, stream=True, temperature=0.7, max_tokens=400,
+            model=self.model, stream=True, temperature=0.7, max_tokens=400, **self.extra,
             messages=[{"role": "system", "content": system}, *messages],
         )
         text = ""
@@ -80,7 +82,7 @@ class OpenAICompatLLM:
 
     async def json(self, prompt: str, schema: dict) -> dict:
         resp = await self.client.chat.completions.create(
-            model=self.model, temperature=0,
+            model=self.model, temperature=0, **self.extra,
             response_format={"type": "json_object"},
             messages=[{"role": "user", "content":
                        f"{prompt}\n\nОтветь ТОЛЬКО JSON-объектом по этой схеме:\n"
