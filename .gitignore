@@ -1,0 +1,5 @@
+__pycache__/
+.env
+.venv/
+sales_bot/calls/
+sales_bot/do_not_call.txt

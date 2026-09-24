@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ИИ-продавец — тест звонка</title>
+<style>
+  :root { --bg:#f6f7fb; --card:#fff; --text:#1c1f2a; --muted:#6b7080; --accent:#3b5bfd; --bot:#eef1ff; --client:#e9f8ef; --danger:#e5484d; --border:#e2e5ee; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#12141b; --card:#1b1e28; --text:#e8eaf2; --muted:#9aa0b3; --accent:#6f86ff; --bot:#242a45; --client:#1f3a2b; --border:#2c3040; } }
+  * { box-sizing: border-box; }
+  body { margin:0; font:15px/1.5 system-ui, sans-serif; background:var(--bg); color:var(--text); }
+  main { max-width:760px; margin:0 auto; padding:16px; }
+  h1 { font-size:22px; margin:8px 0 16px; }
+  .card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:16px; margin-bottom:16px; }
+  .grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  @media (max-width:560px) { .grid { grid-template-columns:1fr; } }
+  label { font-size:13px; color:var(--muted); display:block; }
+  input, select, textarea { width:100%; padding:8px 10px; border:1px solid var(--border); border-radius:8px; background:var(--bg); color:var(--text); font:inherit; }
+  .row { display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; align-items:center; }
+  button { padding:10px 16px; border:0; border-radius:8px; background:var(--accent); color:#fff; font:inherit; cursor:pointer; }
+  button.danger { background:var(--danger); }
+  button:disabled { opacity:.45; cursor:default; }
+  #log { display:flex; flex-direction:column; gap:8px; min-height:120px; }
+  .msg { padding:8px 12px; border-radius:10px; max-width:85%; white-space:pre-wrap; }
+  .bot { background:var(--bot); align-self:flex-start; }
+  .client { background:var(--client); align-self:flex-end; }
+  #status { color:var(--muted); font-size:14px; }
+  pre { white-space:pre-wrap; font-size:13px; margin:0; }
+</style>
+</head>
+<body>
+<main>
+  <h1>📞 ИИ-продавец — тестовый звонок</h1>
+
+  <div class="card">
+    <div class="grid">
+      <div><label>Имя клиента</label><input id="name" placeholder="Олена"></div>
+      <div><label>Бизнес / ниша</label><input id="business" placeholder="салон краси"></div>
+      <div><label>Город</label><input id="city" placeholder="Київ"></div>
+      <div><label>Телефон (для стоп-листа)</label><input id="phone" placeholder="+380..."></div>
+    </div>
+    <label style="margin-top:10px">Заметки</label>
+    <textarea id="notes" rows="2" placeholder="Есть Instagram, сайта нет"></textarea>
+    <div class="row">
+      <label style="flex:0 0 auto">Язык распознавания речи:</label>
+      <select id="lang" style="width:auto">
+        <option value="uk-UA">Українська</option>
+        <option value="ru-RU">Русский</option>
+      </select>
+      <label style="flex:0 0 auto"><input type="checkbox" id="voice" checked style="width:auto"> говорить голосом</label>
+    </div>
+    <div class="row">
+      <button id="startBtn">Начать звонок</button>
+      <button id="endBtn" class="danger" disabled>Положить трубку</button>
+      <span id="status">Chrome или Edge: разреши микрофон. Можно и текстом.</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div id="log"></div>
+    <div class="row">
+      <input id="textIn" placeholder="…или напиши реплику клиента и нажми Enter" disabled style="flex:1">
+      <button id="micBtn" disabled>🎤 Говорить</button>
+    </div>
+  </div>
+
+  <div class="card" id="summaryCard" hidden>
+    <b>Итог звонка</b>
+    <pre id="summary"></pre>
+  </div>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+const END = "[END]";
+let callId = null, busy = false, ending = false;
+
+// ---------- Озвучка: говорим по предложениям, пока текст ещё приходит ----------
+const ttsQueue = [];
+let speaking = false, onSpeechDone = null;
+
+function pickVoice(lang) {
+  const voices = speechSynthesis.getVoices();
+  const base = lang.slice(0, 2);
+  return voices.find(v => v.lang === lang && /natural|online|google/i.test(v.name))
+      || voices.find(v => v.lang.startsWith(base)) || null;
+}
+function detectLang(text) {
+  if (/[іїєґ]/i.test(text)) return "uk-UA";
+  if (/[ыэъё]/i.test(text)) return "ru-RU";
+  return $("lang").value;
+}
+function speak(text) {
+  text = text.trim();
+  if (!text || !$("voice").checked) return;
+  ttsQueue.push(text);
+  if (!speaking) speakNext();
+}
+function speakNext() {
+  const text = ttsQueue.shift();
+  if (!text) { speaking = false; const cb = onSpeechDone; onSpeechDone = null; cb && cb(); return; }
+  speaking = true;
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = detectLang(text);
+  const v = pickVoice(u.lang); if (v) u.voice = v;
+  u.rate = 1.05;
+  u.onend = u.onerror = speakNext;
+  speechSynthesis.speak(u);
+}
+function afterSpeech(cb) { (speaking || ttsQueue.length) ? (onSpeechDone = cb) : cb(); }
+speechSynthesis.onvoiceschanged = () => {};
+
+// ---------- Распознавание речи ----------
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+let rec = null;
+function listen() {
+  if (!SR || !callId || busy || rec) return;
+  rec = new SR();
+  rec.lang = $("lang").value;
+  rec.interimResults = false;
+  rec.onresult = e => { const t = e.results[0][0].transcript; rec = null; say(t); };
+  rec.onerror = () => { $("status").textContent = "Не расслышал. Нажми 🎤 или напиши текстом."; };
+  rec.onend = () => { if (rec) { rec = null; $("status").textContent = "Нажми 🎤, чтобы ответить."; } };
+  rec.start();
+  $("status").textContent = "🎙 Слушаю…";
+}
+
+// ---------- Диалог ----------
+function addMsg(who, text) {
+  const d = document.createElement("div");
+  d.className = "msg " + who; d.textContent = text;
+  $("log").appendChild(d); d.scrollIntoView({block: "end"});
+  return d;
+}
+
+async function say(text) {
+  if (!callId || busy) return;
+  busy = true; setInputs();
+  addMsg("client", text);
+  $("status").textContent = "Бот думает…";
+  const bubble = addMsg("bot", "…");
+  const res = await fetch("/api/turn", {method: "POST", headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({call_id: callId, text})});
+  const reader = res.body.getReader(), dec = new TextDecoder();
+  let full = "", pending = "";
+  while (true) {
+    const {value, done} = await reader.read();
+    if (done) break;
+    const chunk = dec.decode(value, {stream: true});
+    full += chunk; pending += chunk;
+    bubble.textContent = full.replace(END, "").trim();
+    // отдаём в озвучку каждое законченное предложение
+    const m = pending.match(/^[\s\S]*[.!?…](\s|$)/);
+    if (m) { speak(m[0].replace(END, "")); pending = pending.slice(m[0].length); }
+  }
+  speak(pending.replace(END, ""));
+  busy = false; setInputs();
+  $("status").textContent = "Бот говорит…";
+  if (full.includes(END)) afterSpeech(endCall);
+  else afterSpeech(() => { $("status").textContent = "Твоя очередь."; listen(); });
+}
+
+async function startCall() {
+  const lead = Object.fromEntries(["name", "business", "city", "phone", "notes"].map(k => [k, $(k).value]));
+  const res = await fetch("/api/start", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(lead)});
+  if (!res.ok) { alert((await res.json()).detail); return; }
+  callId = (await res.json()).call_id;
+  $("log").innerHTML = ""; $("summaryCard").hidden = true;
+  $("startBtn").disabled = true; $("endBtn").disabled = false; setInputs();
+  // Как будто клиент взял трубку
+  say($("lang").value === "ru-RU" ? "Алло" : "Алло, слухаю");
+}
+
+async function endCall() {
+  if (!callId || ending) return;
+  ending = true;
+  if (rec) { const r = rec; rec = null; r.abort(); }
+  $("status").textContent = "Звонок завершён, составляю итог…";
+  const id = callId; callId = null; setInputs();
+  const res = await fetch("/api/end", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({call_id: id})});
+  const data = await res.json();
+  $("summary").textContent = JSON.stringify(data.result, null, 2);
+  $("summaryCard").hidden = false;
+  $("startBtn").disabled = false; $("endBtn").disabled = true;
+  $("status").textContent = "Итог сохранён в папку calls/.";
+  ending = false;
+}
+
+function setInputs() {
+  const on = !!callId && !busy;
+  $("textIn").disabled = !on; $("micBtn").disabled = !on || !SR;
+}
+
+$("startBtn").onclick = startCall;
+$("endBtn").onclick = () => { speechSynthesis.cancel(); ttsQueue.length = 0; endCall(); };
+$("micBtn").onclick = () => { speechSynthesis.cancel(); ttsQueue.length = 0; listen(); };
+$("textIn").onkeydown = e => {
+  if (e.key === "Enter" && e.target.value.trim()) { const t = e.target.value; e.target.value = ""; say(t); }
+};
+if (!SR) $("status").textContent = "Этот браузер не распознаёт речь — пиши текстом (или открой в Chrome/Edge).";
+</script>
+</body>
+</html>
