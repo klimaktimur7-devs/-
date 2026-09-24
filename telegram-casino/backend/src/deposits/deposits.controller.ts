@@ -1,7 +1,6 @@
 import {
   Body,
   Controller,
-  ForbiddenException,
   Post,
   ServiceUnavailableException,
   UseGuards,
@@ -11,7 +10,6 @@ import { ConfigService } from '@nestjs/config';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { JwtPayload } from '../auth/jwt.strategy';
-import { UsersService } from '../users/users.service';
 import { TelegramBotApiClient } from '../telegram/telegram-bot-api.client';
 
 class CreateStarsInvoiceDto {
@@ -25,7 +23,6 @@ class CreateStarsInvoiceDto {
 export class DepositsController {
   constructor(
     private readonly configService: ConfigService,
-    private readonly usersService: UsersService,
     private readonly botApiClient: TelegramBotApiClient,
   ) {}
 
@@ -36,15 +33,10 @@ export class DepositsController {
       throw new ServiceUnavailableException('Deposits are temporarily disabled');
     }
 
-    const user = await this.usersService.findById(currentUser.sub);
-    if (!user?.consentAcceptedAt) {
-      throw new ForbiddenException('Accept the platform rules before depositing');
-    }
-
     const invoiceLink = await this.botApiClient.createStarsInvoiceLink({
       title: 'Пополнение баланса',
       description: `${dto.amountStars} Stars`,
-      payload: user.id,
+      payload: currentUser.sub,
       amountStars: dto.amountStars,
     });
 

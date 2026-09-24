@@ -38,14 +38,22 @@ describe('Deposits - Stars invoice (e2e)', () => {
       .expect(401);
   });
 
-  it('rejects users who have not accepted consent', async () => {
-    const { token } = await loginAndGetToken(700001);
+  it('creates an invoice link for a user with no recorded consent', async () => {
+    const { token, userId } = await loginAndGetToken(700001);
 
-    await request(app.getHttpServer())
+    global.fetch = jest.fn().mockResolvedValue({
+      json: async () => ({ ok: true, result: 'https://t.me/invoice/abc' }),
+    }) as any;
+
+    const response = await request(app.getHttpServer())
       .post('/deposits/stars/invoice')
       .set('Authorization', `Bearer ${token}`)
       .send({ amountStars: 100 })
-      .expect(403);
+      .expect(201);
+
+    expect(response.body.invoiceLink).toBe('https://t.me/invoice/abc');
+    const sentBody = JSON.parse((global.fetch as jest.Mock).mock.calls[0][1].body);
+    expect(sentBody.payload).toBe(userId);
   });
 
   it('creates an invoice link for a consenting user', async () => {

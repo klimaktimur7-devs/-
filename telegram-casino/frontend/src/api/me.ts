@@ -11,10 +11,3 @@ export interface MeProfile {
 export function fetchMe(): Promise<MeProfile> {
   return apiFetch<MeProfile>('/me');
 }
-
-export function acceptConsent(consentVersion: string): Promise<{ hasAcceptedConsent: boolean }> {
-  return apiFetch('/me/consent', {
-    method: 'POST',
-    body: JSON.stringify({ consentVersion }),
-  });
-}

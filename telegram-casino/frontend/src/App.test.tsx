@@ -45,15 +45,15 @@ describe('App', () => {
     await waitFor(() => expect(screen.getByText('42.50')).toBeInTheDocument());
   });
 
-  it('shows the consent gate when the profile has not accepted consent yet', async () => {
+  it('opens the app directly without a consent screen for a profile with no recorded consent', async () => {
     mockTelegramWebApp();
     mockAuthenticatedFetch(false);
 
     render(<App />);
 
-    await waitFor(() =>
-      expect(screen.getByText('Мне есть 18, принимаю правила')).toBeInTheDocument(),
-    );
+    await waitFor(() => expect(screen.getByText('Раздел появится следующим')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('42.50')).toBeInTheDocument());
+    expect(screen.queryByText(/18/)).not.toBeInTheDocument();
   });
 
   it('opens the deposit modal from the header', async () => {

@@ -3,7 +3,6 @@ import { useTelegramAuth } from './auth/useTelegramAuth';
 import { fetchMe, MeProfile } from './api/me';
 import { fetchBalance } from './api/balance';
 import { fetchGifts } from './api/gifts';
-import { ConsentGate } from './consent/ConsentGate';
 import { TabBar, TabId } from './navigation/TabBar';
 import { ComingSoonScreen } from './navigation/ComingSoonScreen';
 import { Header } from './components/Header';
@@ -35,16 +34,16 @@ export function App() {
   }, [auth.status]);
 
   useEffect(() => {
-    if (profile?.hasAcceptedConsent) {
+    if (profile) {
       fetchBalance().then((response) => setBalanceGram(response.balanceGram));
     }
-  }, [profile?.hasAcceptedConsent]);
+  }, [profile]);
 
   useEffect(() => {
-    if (profile?.hasAcceptedConsent && activeTab === 'shop') {
+    if (profile && activeTab === 'shop') {
       fetchGifts().then(setGifts);
     }
-  }, [profile?.hasAcceptedConsent, activeTab]);
+  }, [profile, activeTab]);
 
   function refreshGifts() {
     fetchGifts().then(setGifts);
@@ -64,10 +63,6 @@ export function App() {
         <p>Не удалось войти: {auth.error}</p>
       </div>
     );
-  }
-
-  if (profile && !profile.hasAcceptedConsent) {
-    return <ConsentGate onAccepted={() => setProfile({ ...profile, hasAcceptedConsent: true })} />;
   }
 
   if (!profile) return null;
