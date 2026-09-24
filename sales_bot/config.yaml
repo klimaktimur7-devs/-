@@ -38,10 +38,26 @@ extras:
 # Цель звонка: договориться о бесплатной консультации с менеджером.
 goal: "домовитися про безкоштовну 15-хвилинну консультацію з менеджером (дзвінок або Telegram) у зручний для клієнта час"
 
-# Модель — главное, от чего зависит цена (примерно за один звонок ~10 реплик):
-#   claude-haiku-4-5  — самая дешёвая и быстрая, ~$0.03–0.05 за звонок (по умолчанию)
-#   claude-sonnet-5   — умнее, ~$0.07–0.12 за звонок
-#   claude-opus-5     — самая умная, ~$0.15–0.30 за звонок
-model: "claude-haiku-4-5"
-# Только для sonnet/opus: low — быстрее (важно для голоса), medium/high — умнее, но дольше пауза.
-effort: "low"
+# ---------- Нейросеть ----------
+# gemini     — БЕСПЛАТНО (лимит запросов в день), лучше всех из бесплатных говорит по-украински
+# groq       — БЕСПЛАТНО (лимит), очень быстрые ответы
+# openrouter — есть бесплатные модели (с ":free" в названии), но они медленнее и нестабильнее
+# claude     — платно (~$0.03–0.05 за звонок на Haiku), самое качественное
+provider: "gemini"
+
+providers:
+  gemini:     # ключ: https://aistudio.google.com/apikey
+    base_url: "https://generativelanguage.googleapis.com/v1beta/openai/"
+    model: "gemini-2.5-flash"     # актуальные названия смотри в AI Studio
+    key_env: "GEMINI_API_KEY"
+  groq:       # ключ: https://console.groq.com/keys
+    base_url: "https://api.groq.com/openai/v1"
+    model: "llama-3.3-70b-versatile"   # список: https://console.groq.com/docs/models
+    key_env: "GROQ_API_KEY"
+  openrouter: # ключ: https://openrouter.ai/keys
+    base_url: "https://openrouter.ai/api/v1"
+    model: "meta-llama/llama-3.3-70b-instruct:free"   # бесплатные: https://openrouter.ai/models?q=free
+    key_env: "OPENROUTER_API_KEY"
+  claude:     # ключ: https://console.anthropic.com (переменная ANTHROPIC_API_KEY)
+    model: "claude-haiku-4-5"   # или claude-sonnet-5 / claude-opus-5 — умнее, но дороже
+    effort: "low"               # только для sonnet/opus

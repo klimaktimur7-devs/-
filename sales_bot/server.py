@@ -10,12 +10,12 @@ import uuid
 from datetime import datetime
 from pathlib import Path
 
-import anthropic
 import yaml
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
 
+from llm import make_llm
 from prompt import END_MARKER, build_system_prompt, lead_context
 
 BASE = Path(__file__).parent
@@ -25,22 +25,9 @@ CALLS_DIR.mkdir(exist_ok=True)
 
 CFG = yaml.safe_load((BASE / "config.yaml").read_text(encoding="utf-8"))
 SYSTEM = build_system_prompt(CFG)
-FALLBACK_BETA = "server-side-fallback-2026-07-01"
-
-def model_params(effort: str) -> dict:
-    """Haiku не поддерживает effort; серверный фоллбэк нужен только старшим моделям."""
-    model = CFG["model"]
-    params = {"model": model}
-    if not model.startswith("claude-haiku"):
-        params["output_config"] = {"effort": effort}
-    if model.startswith(("claude-opus", "claude-fable")):
-        params |= {"betas": [FALLBACK_BETA], "fallbacks": "default"}
-    return params
-
-
 SORRY = "Вибачте, трохи погано чути. Я передам ваш номер менеджеру, він вам зателефонує. Гарного дня! " + END_MARKER
 
-client = anthropic.AsyncAnthropic()
+llm = make_llm(CFG)
 app = FastAPI()
 
 # Активные звонки в памяти: id -> {"lead": ..., "messages": [...], "transcript": [...]}
@@ -105,30 +92,15 @@ async def turn(t: Turn):
     async def generate():
         spoken = ""
         try:
-            async with client.beta.messages.stream(
-                **model_params(CFG["effort"]),
-                max_tokens=2000,
-                system=SYSTEM,
-                messages=call["messages"],
-            ) as stream:
-                async for chunk in stream.text_stream:
-                    spoken += chunk
-                    yield chunk
-                final = await stream.get_final_message()
-            if final.stop_reason == "refusal":
-                spoken = SORRY
-                yield "\n" + SORRY
-                call["messages"].append({"role": "assistant", "content": SORRY})
-            else:
-                # Сохраняем текст и блоки размышлений как есть — так модель помнит ход разговора.
-                keep = [b.model_dump(exclude_none=True) for b in final.content
-                        if b.type in ("text", "thinking", "redacted_thinking")]
-                call["messages"].append({"role": "assistant", "content": keep or spoken})
+            async for chunk in llm.reply(SYSTEM, call["messages"], SORRY):
+                spoken += chunk
+                yield chunk
         except Exception as e:  # звонок не должен падать: извиняемся и завершаем
-            print(f"Claude API error: {e!r}")
+            print(f"LLM error: {e!r}")
             spoken = SORRY
             yield SORRY
-            call["messages"].pop()  # чтобы история не сломалась на следующем ходе
+            if call["messages"][-1]["role"] == "user":
+                call["messages"].pop()  # чтобы история не сломалась на следующем ходе
         call["transcript"].append({"who": "bot", "text": spoken.replace(END_MARKER, "").strip()})
 
     return StreamingResponse(generate(), media_type="text/plain; charset=utf-8")
@@ -157,12 +129,6 @@ SUMMARY_SCHEMA = {
 }
 
 
-def summary_params() -> dict:
-    params = model_params("low")
-    params.setdefault("output_config", {})["format"] = {"type": "json_schema", "schema": SUMMARY_SCHEMA}
-    return params
-
-
 @app.post("/api/end")
 async def end(ref: CallRef):
     call = calls.pop(ref.call_id, None)
@@ -175,16 +141,12 @@ async def end(ref: CallRef):
     result = {"outcome": "unclear", "summary": "Не удалось составить итог."}
     if call["transcript"]:
         try:
-            resp = await client.beta.messages.create(
-                **summary_params(),
-                max_tokens=4000,
-                messages=[{"role": "user", "content":
-                           "Ось розшифровка дзвінка з продажу сайтів. Склади підсумок російською мовою. "
-                           "Якщо поля не відомі — пиши порожній рядок. outcome=do_not_call, якщо людина "
-                           f"просила більше не дзвонити.\n\n{dialog}"}],
+            result = await llm.json(
+                "Ось розшифровка дзвінка з продажу сайтів. Склади підсумок російською мовою. "
+                "Якщо поля не відомі — пиши порожній рядок. outcome=do_not_call, якщо людина "
+                f"просила більше не дзвонити.\n\n{dialog}",
+                SUMMARY_SCHEMA,
             )
-            if resp.stop_reason != "refusal":
-                result = json.loads(next(b.text for b in resp.content if b.type == "text"))
         except Exception as e:
             print(f"Summary error: {e!r}")
 

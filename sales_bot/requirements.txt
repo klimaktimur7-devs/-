@@ -2,3 +2,4 @@ anthropic>=1.8
 fastapi
 uvicorn
 pyyaml
+openai
