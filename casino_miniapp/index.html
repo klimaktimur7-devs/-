@@ -1,0 +1,570 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Glint Mini App</title>
+<meta name="theme-color" content="#0d0d10">
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+@import url("https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700;800&display=swap");
+:root {
+  color-scheme: dark;
+  --bg: #0d0d10;
+  --bg-grid: rgba(255,255,255,0.035);
+  --surface-1: #131317;
+  --surface-2: #1a1a1f;
+  --surface-3: #26262c;
+  --surface-4: #3a3a42;
+  --line: rgba(255,255,255,0.08);
+  --line-strong: rgba(255,255,255,0.16);
+  --ink: #ffffff;
+  --ink-muted: #9b9ba3;
+  --ink-faint: #6b6b73;
+  --accent: #0b72e7;
+  --on-accent: #ffffff;
+  --ball: #2bb8e6;
+  --ball-hi: #8be6ff;
+  --ball-lo: #0b6f99;
+  --on-ball: #062a3b;
+  --teal: #1f7a8a;
+  --teal-deep: #155e68;
+  --teal-soft: #d6f4f8;
+  --game-blue: #1e3fd8;
+  --game-violet: #6d28d9;
+  --game-green: #17802c;
+  --win: #2fd566;
+  --loss: #ff4d62;
+  --focus: #3fc8f2;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --radius-sm: 10px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
+  --radius-xl: 32px;
+  --radius-pill: 999px;
+  --shadow-ball: inset -6px -8px 14px rgba(0,40,60,0.45), inset 4px 6px 10px rgba(255,255,255,0.35), 0 6px 18px rgba(43,184,230,0.25);
+  --shadow-card: 0 10px 30px rgba(0,0,0,0.45);
+  --shadow-glass: inset 0 1px 0 rgba(255,255,255,0.08);
+  --font-sans: "Onest", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, monospace;
+}
+html, body { height: 100%; }
+body { overscroll-behavior: none; }
+#root { height: 100vh; height: 100dvh; height: var(--tg-viewport-stable-height, 100dvh); }
+
+/* ---------- base ---------- */
+body { margin: 0; font-family: var(--font-sans); background: var(--bg); color: var(--ink); -webkit-font-smoothing: antialiased; }
+.gl-grid-bg { background-color: var(--bg); background-image: linear-gradient(var(--bg-grid) 1px, transparent 1px), linear-gradient(90deg, var(--bg-grid) 1px, transparent 1px); background-size: 24px 24px; }
+.gl-row { display: flex; gap: var(--space-3); align-items: center; flex-wrap: wrap; padding: var(--space-4); }
+.gl-col { display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-4); }
+.gl-btn-reset { font: inherit; color: inherit; background: none; border: 0; padding: 0; margin: 0; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.gl-btn-reset:focus-visible, .gl-focus:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.gl-icon { display: inline-block; flex: none; vertical-align: middle; }
+.gl-muted { color: var(--ink-muted); }
+
+/* ---------- currency ---------- */
+.gl-coin { display: inline-grid; place-items: center; flex: none; width: 24px; height: 24px; border-radius: 7px; background: var(--ink); color: var(--bg); }
+.gl-coin-sm { width: 16px; height: 16px; border-radius: 5px; }
+.gl-coin-bare { background: none; color: inherit; width: auto; height: auto; }
+.gl-amount { display: inline-flex; align-items: center; gap: 3px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.gl-amount-win { color: var(--win); }
+.gl-amount-loss { color: var(--loss); }
+
+/* ---------- header ---------- */
+.gl-balance { display: inline-flex; align-items: center; gap: var(--space-2); height: 48px; padding: 0 6px 0 12px; border-radius: var(--radius-md); background: var(--surface-3); border: 1px solid var(--line); box-shadow: var(--shadow-glass); font-weight: 700; font-size: 15px; }
+.gl-balance-plus { display: grid; place-items: center; width: 34px; height: 34px; border-radius: var(--radius-sm); background: var(--surface-4); }
+.gl-iconbtn { display: inline-grid; place-items: center; width: 48px; height: 48px; border-radius: var(--radius-md); background: var(--surface-3); border: 1px solid var(--line); box-shadow: var(--shadow-glass); color: var(--ink); }
+.gl-iconbtn:active, .gl-balance-plus:active { background: var(--surface-4); }
+.gl-iconbtn[aria-pressed="true"] { border-color: var(--line-strong); }
+.gl-topbar { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-3) var(--space-4); }
+
+/* ---------- badges ---------- */
+.gl-badge { display: inline-flex; align-items: center; height: 18px; padding: 0 6px; border-radius: 6px; background: var(--surface-4); color: var(--ink-muted); font-size: 10px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+.gl-badge-new { background: var(--ball-hi); color: var(--on-ball); transform: rotate(-4deg); font-size: 12px; height: 22px; padding: 0 10px; }
+.gl-online { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; line-height: 16px; font-weight: 600; color: var(--ink); }
+.gl-online::before { content: ""; width: 6px; height: 6px; border-radius: 999px; background: var(--win); box-shadow: 0 0 0 3px rgba(47,213,102,.18); }
+
+/* ---------- game round ---------- */
+.gl-pool { text-align: center; padding: var(--space-6) var(--space-4) var(--space-4); position: relative; }
+.gl-pool-label { font-size: 16px; line-height: 20px; font-weight: 600; color: var(--ink-muted); }
+.gl-pool-amount { font-size: 44px; line-height: 48px; font-weight: 800; letter-spacing: -.01em; margin-top: 4px; font-variant-numeric: tabular-nums; }
+.gl-pool-meta { display: inline-flex; gap: 8px; align-items: center; margin-top: 8px; font-size: 12px; line-height: 16px; color: var(--ink-muted); }
+.gl-pool-meta i { width: 1px; height: 12px; background: var(--line-strong); }
+.gl-spot { position: relative; }
+.gl-spot::before { content: ""; position: absolute; inset: -40px -20px auto; height: 220px; pointer-events: none; background: radial-gradient(ellipse at 50% 0%, rgba(255,255,255,.10), transparent 65%); }
+
+.gl-player { display: flex; align-items: center; gap: var(--space-3); padding: 10px 14px 10px 10px; border-radius: var(--radius-md); background: var(--surface-3); border: 1px solid var(--line); box-shadow: var(--shadow-glass); position: relative; overflow: hidden; }
+.gl-player-share { position: absolute; left: 0; top: 0; bottom: 0; background: rgba(43,184,230,.10); pointer-events: none; }
+.gl-player-win { border-color: var(--win); }
+.gl-avatar { width: 48px; height: 48px; border-radius: var(--radius-sm); flex: none; display: grid; place-items: center; font-weight: 800; font-size: 18px; color: var(--ink); background: var(--surface-4); object-fit: cover; position: relative; }
+.gl-avatar-sm { width: 40px; height: 40px; border-radius: 999px; font-size: 15px; }
+.gl-player-name { flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; font-weight: 700; font-size: 15px; }
+.gl-player-name span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gl-player-stake { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; font-size: 16px; position: relative; }
+
+.gl-status { flex: 1; min-width: 0; text-align: center; padding: 12px var(--space-3); border-radius: var(--radius-lg); background: var(--surface-2); border: 1px solid var(--line); }
+.gl-status-label { font-size: 13px; line-height: 16px; font-weight: 600; color: var(--ink-muted); }
+.gl-status-value { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 26px; line-height: 30px; font-weight: 700; margin-top: 2px; font-variant-numeric: tabular-nums; }
+
+.gl-action { display: inline-flex; flex-direction: column; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; }
+.gl-action-face { width: 64px; height: 64px; display: grid; place-items: center; border-radius: var(--radius-lg); background: linear-gradient(160deg, var(--teal), var(--teal-deep)); border: 1px solid var(--line-strong); color: var(--ink); box-shadow: var(--shadow-glass); }
+.gl-action-quiet .gl-action-face { background: var(--surface-2); border-color: var(--line); }
+.gl-action:disabled { cursor: not-allowed; }
+.gl-action:disabled .gl-action-face { opacity: .45; }
+.gl-switch { display: inline-flex; gap: 2px; padding: 4px; border-radius: var(--radius-md); background: var(--surface-2); border: 1px solid var(--line); }
+.gl-switch button { width: 32px; height: 48px; border-radius: 12px; display: grid; place-items: center; color: var(--ink-faint); }
+.gl-switch button[aria-pressed="true"] { background: var(--surface-4); color: var(--ink); }
+
+.gl-rail { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-2); padding: 0 var(--space-3); }
+.gl-bet { display: inline-flex; flex-direction: column; align-items: center; gap: 6px; flex: 1 1 0; min-width: 0; }
+.gl-ball { width: 60px; height: 60px; border-radius: 999px; display: grid; place-items: center; font-size: 22px; line-height: 1; font-weight: 500; color: var(--on-ball); background: radial-gradient(circle at 32% 28%, var(--ball-hi) 0%, var(--ball) 45%, var(--ball-lo) 100%); box-shadow: var(--shadow-ball); transition: transform .15s ease, width .15s ease, height .15s ease; }
+.gl-bet[aria-pressed="true"] .gl-ball { width: 72px; height: 72px; font-size: 28px; }
+.gl-bet:active .gl-ball { transform: scale(.94); }
+.gl-bet-price { font-size: 12px; line-height: 16px; font-weight: 600; color: var(--ink-muted); display: inline-flex; align-items: center; gap: 2px; }
+.gl-bet[aria-pressed="true"] .gl-bet-price { color: var(--ink); }
+
+/* ---------- navigation ---------- */
+.gl-nav { display: flex; background: var(--surface-1); border-top: 1px solid var(--line); padding: 8px 4px calc(8px + env(safe-area-inset-bottom)); }
+.gl-nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 12px; line-height: 14px; font-weight: 600; color: var(--ink-muted); padding: 4px 0; border-radius: 12px; }
+.gl-nav-item .gl-icon { color: var(--ink-faint); }
+.gl-nav-item[aria-current="page"] { color: var(--ink); }
+.gl-nav-item[aria-current="page"] .gl-icon { color: var(--ink); }
+
+.gl-tabs { display: flex; gap: var(--space-6); padding: 0 var(--space-5); border-bottom: 1px solid var(--line); overflow-x: auto; scrollbar-width: none; }
+.gl-tab { padding: 16px 0 14px; font-size: 15px; font-weight: 600; color: var(--ink-muted); border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap; }
+.gl-tab[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--ink); }
+
+.gl-select { position: relative; display: inline-flex; align-items: center; justify-content: space-between; gap: 6px; height: 48px; padding: 0 12px 0 14px; border-radius: var(--radius-md); background: var(--surface-2); border: 1px solid var(--line); font-size: 15px; font-weight: 600; flex: 1 1 0; min-width: 0; }
+.gl-select select { position: absolute; inset: 0; opacity: 0; cursor: pointer; font: inherit; }
+.gl-select-value { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gl-select:focus-within { outline: 2px solid var(--focus); outline-offset: 2px; }
+.gl-filters { display: flex; gap: var(--space-2); padding: var(--space-4) var(--space-4) var(--space-3); }
+
+/* ---------- shop ---------- */
+.gl-gifts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-2); padding: 0 var(--space-4) var(--space-4); }
+.gl-gift { display: flex; flex-direction: column; border-radius: var(--radius-md); background: var(--surface-2); border: 1px solid var(--line); overflow: hidden; padding: 6px 6px 8px; gap: 6px; }
+.gl-gift-art { aspect-ratio: 1; border-radius: 12px; display: grid; place-items: center; overflow: hidden; }
+.gl-gift-art img, .gl-gift-art svg { width: 78%; height: 78%; }
+.gl-gift-name { font-size: 13px; line-height: 16px; font-weight: 700; padding: 0 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gl-gift-num { font-size: 11px; line-height: 14px; color: var(--ink-muted); padding: 0 2px; margin-top: -4px; }
+.gl-price { display: flex; align-items: center; justify-content: center; gap: 4px; height: 34px; border-radius: var(--radius-sm); background: var(--accent); color: var(--on-accent); font-weight: 700; font-size: 14px; font-variant-numeric: tabular-nums; }
+.gl-price:disabled { opacity: .5; cursor: not-allowed; }
+.gl-price-owned { background: var(--surface-4); color: var(--ink); }
+
+/* ---------- lobby ---------- */
+.gl-game { position: relative; display: flex; flex-direction: column; justify-content: flex-end; text-align: left; border-radius: var(--radius-lg); overflow: hidden; padding: var(--space-4); min-height: 150px; color: var(--ink); border: 1px solid var(--line-strong); box-shadow: var(--shadow-card); }
+.gl-game-blue { background: var(--game-blue); }
+.gl-game-violet { background: var(--game-violet); }
+.gl-game-green { background: var(--game-green); }
+.gl-game-art { position: absolute; inset: 0; pointer-events: none; }
+.gl-game-art::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0,0,0,0) 45%, rgba(0,0,0,.35) 100%); }
+.gl-game-top { position: absolute; top: 12px; left: 16px; right: 16px; display: flex; justify-content: space-between; align-items: center; }
+.gl-game-title { position: relative; font-size: 26px; line-height: 30px; font-weight: 700; }
+.gl-game-sub { position: relative; font-size: 13px; line-height: 16px; font-weight: 500; margin-top: 2px; }
+.gl-game-center { align-items: center; text-align: center; }
+.gl-lobby { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3); padding: 0 var(--space-4) var(--space-4); }
+.gl-lobby > .gl-wide { grid-column: 1 / -1; }
+.gl-lobby > .gl-tall { grid-row: span 2; }
+.gl-page-title { font-size: 40px; line-height: 44px; font-weight: 700; padding: var(--space-5) var(--space-5) var(--space-4); margin: 0; }
+
+/* ---------- profile ---------- */
+.gl-hero { background: linear-gradient(180deg, var(--teal) 0%, var(--teal-deep) 100%); padding: var(--space-6) var(--space-4) 56px; text-align: center; background-image: linear-gradient(rgba(255,255,255,.06) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.06) 1px, transparent 1px), linear-gradient(180deg, var(--teal) 0%, var(--teal-deep) 100%); background-size: 24px 24px, 24px 24px, auto; }
+.gl-hero-label { font-size: 16px; font-weight: 600; color: var(--teal-soft); }
+.gl-hero-amount { display: inline-flex; align-items: center; gap: 10px; font-size: 44px; line-height: 48px; font-weight: 800; margin-top: 2px; }
+.gl-hero-actions { display: flex; justify-content: center; gap: var(--space-3); margin-top: var(--space-5); }
+.gl-hero-actions .gl-action { flex: 1; max-width: 108px; text-align: center; }
+.gl-hero-actions .gl-action-face { width: 100%; height: 48px; border-radius: 999px; background: rgba(255,255,255,.12); border-color: rgba(255,255,255,.18); }
+.gl-sheet { position: relative; margin-top: -32px; background: var(--surface-1); border-radius: var(--radius-xl) var(--radius-xl) 0 0; border-top: 1px solid var(--line); }
+.gl-me { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-4) var(--space-4) var(--space-3); }
+.gl-me-name { flex: 1; text-align: center; font-weight: 700; font-size: 16px; }
+.gl-inv { margin: 0 var(--space-3) var(--space-3); padding: var(--space-4); border-radius: var(--radius-lg); background: var(--surface-2); border: 1px solid var(--line); }
+.gl-inv-head { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-2); }
+.gl-inv-title { font-size: 20px; line-height: 24px; font-weight: 700; }
+.gl-inv-count { font-size: 13px; font-weight: 600; color: var(--ink-muted); display: inline-flex; align-items: center; gap: 4px; }
+.gl-slots { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-2); margin-top: var(--space-4); }
+.gl-slot { aspect-ratio: 1; border-radius: var(--radius-md); background: var(--surface-3); display: grid; place-items: center; color: var(--ink-faint); overflow: hidden; }
+.gl-slot-all { color: var(--ink); font-size: 13px; font-weight: 700; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; }
+.gl-hint { display: flex; justify-content: space-between; align-items: center; gap: var(--space-2); margin-top: var(--space-3); padding: 12px 14px; border-radius: var(--radius-md); background: var(--teal-deep); font-size: 13px; font-weight: 600; color: var(--teal-soft); }
+.gl-hint button { color: var(--teal-soft); display: inline-flex; align-items: center; gap: 2px; font-weight: 700; }
+
+/* ---------- shell ---------- */
+.gl-app { width: 100%; max-width: 420px; height: 100%; margin: 0 auto; display: flex; flex-direction: column; overflow: hidden; position: relative; }
+.gl-app-body { flex: 1; overflow-y: auto; overflow-x: hidden; scrollbar-width: none; }
+.gl-shophead { background-image: linear-gradient(rgba(255,255,255,.06) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.06) 1px, transparent 1px), linear-gradient(180deg, var(--teal) 0%, var(--teal-deep) 100%); background-size: 24px 24px, 24px 24px, auto; padding: var(--space-5) var(--space-4) 52px; display: flex; justify-content: space-between; align-items: center; }
+.gl-shophead h1 { margin: 0; font-size: 40px; line-height: 44px; font-weight: 700; }
+.gl-toast { position: absolute; left: 50%; bottom: 84px; transform: translateX(-50%); background: var(--surface-4); border: 1px solid var(--line-strong); color: var(--ink); padding: 10px 16px; border-radius: 999px; font-size: 14px; font-weight: 600; white-space: nowrap; box-shadow: var(--shadow-card); z-index: 5; }
+.gl-back { display: inline-flex; align-items: center; gap: 4px; color: var(--ink-muted); font-weight: 600; font-size: 14px; }
+.gl-demo { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-muted); text-align: center; padding: 4px 0 0; }
+@media (prefers-reduced-motion: reduce) { .gl-ball { transition: none; } }
+
+</style>
+</head>
+<body class="gl-grid-bg">
+<div id="root"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
+<script>
+/* @ds-bundle: {"format":4,"namespace":"Glint","components":[{"name":"Icon"},{"name":"Coin"},{"name":"Amount"},{"name":"BalancePill"},{"name":"IconButton"},{"name":"Badge"},{"name":"OnlineBadge"},{"name":"PrizePool"},{"name":"PlayerRow"},{"name":"StatusPanel"},{"name":"RoundAction"},{"name":"CurrencySwitch"},{"name":"BetRail"},{"name":"BottomNav"},{"name":"SegmentTabs"},{"name":"FilterSelect"},{"name":"GiftCard"},{"name":"GameCard"},{"name":"BalanceHero"},{"name":"InventoryPanel"},{"name":"MiniApp"}]} */
+(function () {
+  var React = window.React, h = React.createElement, useState = React.useState, useEffect = React.useEffect, useRef = React.useRef;
+  function cx() { return Array.prototype.filter.call(arguments, Boolean).join(' '); }
+  function fmt(n) { var r = Math.round(n * 100) / 100; return String(r); }
+
+  /* ---------- icons: 24px grid, 1.8 stroke, round caps ---------- */
+  var P = {
+    plus: 'M12 5v14M5 12h14',
+    shop: 'M4 10v9a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-9M3.5 4h17L21 8a2.5 2.5 0 0 1-4.5 1.5 2.5 2.5 0 0 1-4.5 0 2.5 2.5 0 0 1-4.5 0A2.5 2.5 0 0 1 3 8zM10 20v-5h4v5',
+    pvp: 'M10 5h4a7 7 0 0 1 0 14h-4a7 7 0 0 1 0-14zM9.5 10.2a1.8 1.8 0 1 0 0 3.6 1.8 1.8 0 0 0 0-3.6zM14.5 10.2a1.8 1.8 0 1 0 0 3.6 1.8 1.8 0 0 0 0-3.6z',
+    solo: 'M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7zM12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1',
+    profile: 'M12 4a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM4.5 20c1.4-3.6 4.3-5.5 7.5-5.5s6.1 1.9 7.5 5.5',
+    calendar: 'M6 5h12a3 3 0 0 1 3 3v10a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3zM3 10h18M8 3v4M16 3v4M9 15.5l2 2 4-4',
+    soundOff: 'M4 9.5h3l5-4v13l-5-4H4zM16.5 9.5l5 5M21.5 9.5l-5 5',
+    soundOn: 'M4 9.5h3l5-4v13l-5-4H4zM16 9a4 4 0 0 1 0 6M18.5 6.5a7.5 7.5 0 0 1 0 11',
+    star: 'M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z',
+    swap: 'M5 8h13l-3.5-3.5M19 16H6l3.5 3.5',
+    gift: 'M4 11h16v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2zM3 7h18v4H3zM12 7v14M12 7C10.5 3.5 6.5 3.5 7 6.2 7.3 7 9 7 12 7zM12 7c1.5-3.5 5.5-3.5 5 -.8C16.7 7 15 7 12 7z',
+    sort: 'M8 4v16M4.5 7.5L8 4l3.5 3.5M16 20V4M12.5 16.5L16 20l3.5-3.5',
+    chevronDown: 'M6.5 9.5l5.5 5.5 5.5-5.5',
+    chevronRight: 'M9.5 6.5l5.5 5.5-5.5 5.5',
+    chevronLeft: 'M14.5 6.5L9 12l5.5 5.5',
+    sliders: 'M4 7h9M18 7h2M4 17h3M11 17h9M15.5 5a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM9 15a2 2 0 1 0 0 4 2 2 0 0 0 0-4z',
+    grid: 'M7.5 5.5a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM16.5 5.5a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM7.5 14.5a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM16.5 14.5a2 2 0 1 0 0 4 2 2 0 0 0 0-4z',
+    shield: 'M12 3l7 3v5.5c0 4.4-3 8-7 9.5-4-1.5-7-5.1-7-9.5V6zM9 12l2 2 4-4',
+    gem: 'M7 4h10l4 5-9 11L3 9zM3 9h18M9.5 4L8 9l4 11 4-11-1.5-5'
+  };
+  var FILLED = { star: 1 };
+  function Icon(props) {
+    var name = props.name, size = props.size || 24, d = P[name] || P.plus, filled = FILLED[name];
+    return h('svg', { className: cx('gl-icon', props.className), width: size, height: size, viewBox: '0 0 24 24', fill: filled ? 'currentColor' : 'none', stroke: 'currentColor', strokeWidth: props.strokeWidth || 1.8, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': props.label ? undefined : 'true', role: props.label ? 'img' : undefined, 'aria-label': props.label }, h('path', { d: d }));
+  }
+  Icon.names = Object.keys(P);
+
+  /* ---------- currency ---------- */
+  function Coin(props) {
+    var size = props.size || 'md';
+    var px = size === 'sm' ? 11 : size === 'bare' ? (props.px || 16) : 15;
+    return h('span', { className: cx('gl-coin', size === 'sm' && 'gl-coin-sm', size === 'bare' && 'gl-coin-bare', props.className), role: 'img', 'aria-label': props.label || 'TON' }, h(Icon, { name: 'gem', size: px, strokeWidth: 2.2 }));
+  }
+  function Amount(props) {
+    var v = props.value, tone = props.tone, sign = props.signed ? (v > 0 ? '+' : v < 0 ? '−' : '') : '';
+    return h('span', { className: cx('gl-amount', tone && 'gl-amount-' + tone, props.className), style: props.style }, sign + fmt(Math.abs(v)), props.coin === false ? null : h(Coin, { size: 'bare', px: props.coinSize || 13 }));
+  }
+
+  /* ---------- header ---------- */
+  function BalancePill(props) {
+    return h('div', { className: 'gl-balance' }, h(Coin, null), h('span', { style: { fontVariantNumeric: 'tabular-nums' } }, fmt(props.value)),
+      h('button', { className: 'gl-btn-reset gl-balance-plus', 'aria-label': props.addLabel || 'Пополнить баланс', onClick: props.onAdd }, h(Icon, { name: 'plus', size: 20 })));
+  }
+  function IconButton(props) {
+    return h('button', { className: cx('gl-btn-reset gl-iconbtn', props.className), 'aria-label': props.label, 'aria-pressed': props.pressed == null ? undefined : String(!!props.pressed), onClick: props.onClick }, h(Icon, { name: props.icon }));
+  }
+
+  /* ---------- status ---------- */
+  function Badge(props) { return h('span', { className: cx('gl-badge', props.tone === 'new' && 'gl-badge-new') }, props.children); }
+  function OnlineBadge(props) { return h('span', { className: 'gl-online' }, props.count + ' онлайн'); }
+
+  /* ---------- round ---------- */
+  function PrizePool(props) {
+    return h('div', { className: 'gl-pool' },
+      h('div', { className: 'gl-pool-label' }, props.label || 'Призовой пул'),
+      h('div', { className: 'gl-pool-amount' }, fmt(props.amount) + ' ' + (props.currency || 'TON')),
+      props.gameId ? h('div', { className: 'gl-pool-meta' }, h('span', null, 'Игра #' + props.gameId), h('i'), h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 4 } }, h(Icon, { name: 'shield', size: 13 }), 'Hash: ' + props.hash)) : null);
+  }
+  var AV = ['#1e3fd8', '#6d28d9', '#1f7a8a', '#17802c', '#b4471f', '#3a3a42'];
+  function Avatar(props) {
+    var name = props.name || '?', i = 0; for (var k = 0; k < name.length; k++) i = (i + name.charCodeAt(k)) % AV.length;
+    if (props.src) return h('img', { className: cx('gl-avatar', props.small && 'gl-avatar-sm'), src: props.src, alt: '' });
+    return h('span', { className: cx('gl-avatar', props.small && 'gl-avatar-sm'), style: { background: AV[i] }, 'aria-hidden': 'true' }, name.replace('@', '').charAt(0).toUpperCase());
+  }
+  function PlayerRow(props) {
+    return h('div', { className: cx('gl-player', props.winner && 'gl-player-win') },
+      props.share != null ? h('span', { className: 'gl-player-share', style: { width: Math.round(props.share * 100) + '%' } }) : null,
+      h(Avatar, { name: props.name, src: props.avatar }),
+      h('div', { className: 'gl-player-name' }, h('span', null, props.name), props.badge ? h(Badge, null, props.badge) : null),
+      h('div', { className: 'gl-player-stake' }, props.share != null ? h('span', { className: 'gl-muted', style: { fontSize: 13, fontWeight: 600 } }, Math.round(props.share * 100) + '%') : h(Icon, { name: 'pvp', size: 22 }), h('span', null, props.stake)));
+  }
+  function StatusPanel(props) {
+    return h('div', { className: 'gl-status', role: 'status', 'aria-live': 'polite' }, h('div', { className: 'gl-status-label' }, props.label), h('div', { className: 'gl-status-value' }, props.value));
+  }
+  function RoundAction(props) {
+    return h('button', { className: cx('gl-btn-reset gl-action', props.variant === 'quiet' && 'gl-action-quiet'), onClick: props.onClick, disabled: props.disabled },
+      h('span', { className: 'gl-action-face' }, props.children || h(Icon, { name: props.icon || 'plus', size: 26 })), h('span', null, props.label));
+  }
+  function CurrencySwitch(props) {
+    var v = props.value || 'ton', set = props.onChange || function () {};
+    return h('div', { className: 'gl-action' },
+      h('div', { className: 'gl-switch', role: 'group', 'aria-label': 'Валюта ставки' },
+        h('button', { className: 'gl-btn-reset', 'aria-pressed': String(v === 'ton'), 'aria-label': 'TON', onClick: function () { set('ton'); } }, h(Icon, { name: 'gem', size: 18, strokeWidth: 2.2 })),
+        h('button', { className: 'gl-btn-reset', 'aria-pressed': String(v === 'stars'), 'aria-label': 'Stars', onClick: function () { set('stars'); } }, h(Icon, { name: 'star', size: 18 }))),
+      h('span', null, props.label || 'Сменить'));
+  }
+  function BetRail(props) {
+    var opts = props.options || [], sel = props.value;
+    return h('div', { className: 'gl-rail', role: 'group', 'aria-label': 'Размер ставки' }, opts.map(function (o) {
+      return h('button', { key: o.value, className: 'gl-btn-reset gl-bet', 'aria-pressed': String(o.value === sel), onClick: function () { props.onChange && props.onChange(o.value); } },
+        h('span', { className: 'gl-ball' }, o.value),
+        h('span', { className: 'gl-bet-price' }, fmt(o.price), h(Coin, { size: 'bare', px: 11 })));
+    }));
+  }
+
+  /* ---------- navigation ---------- */
+  var NAV = [{ id: 'shop', label: 'Магазин', icon: 'shop' }, { id: 'pvp', label: 'PvP', icon: 'pvp' }, { id: 'solo', label: 'Solo', icon: 'solo' }, { id: 'profile', label: 'Профиль', icon: 'profile' }];
+  function BottomNav(props) {
+    var items = props.items || NAV;
+    return h('nav', { className: 'gl-nav', 'aria-label': 'Разделы' }, items.map(function (it) {
+      return h('button', { key: it.id, className: 'gl-btn-reset gl-nav-item', 'aria-current': it.id === props.value ? 'page' : undefined, onClick: function () { props.onChange && props.onChange(it.id); } }, h(Icon, { name: it.icon }), it.label);
+    }));
+  }
+  function SegmentTabs(props) {
+    return h('div', { className: 'gl-tabs', role: 'tablist' }, props.tabs.map(function (t) {
+      var id = t.id || t;
+      return h('button', { key: id, role: 'tab', className: 'gl-btn-reset gl-tab', 'aria-selected': String(id === props.value), onClick: function () { props.onChange && props.onChange(id); } }, t.label || t);
+    }));
+  }
+  function FilterSelect(props) {
+    var cur = props.options.filter(function (o) { return (o.value || o) === props.value; })[0];
+    return h('label', { className: 'gl-select' },
+      h('span', { className: 'gl-select-value' }, props.value ? (cur && (cur.label || cur)) : props.label),
+      h(Icon, { name: 'chevronDown', size: 18 }),
+      h('select', { 'aria-label': props.label, value: props.value || '', onChange: function (e) { props.onChange && props.onChange(e.target.value || null); } },
+        h('option', { value: '' }, props.label + ': все'),
+        props.options.map(function (o) { return h('option', { key: o.value || o, value: o.value || o }, o.label || o); })));
+  }
+
+  /* ---------- shop ---------- */
+  function GiftArt(props) {
+    var c = props.hue || '#2bb8e6';
+    var shapes = {
+      heart: h('path', { d: 'M50 84C20 64 10 46 18 30c7-13 24-14 32 0 8-14 25-13 32 0 8 16-2 34-32 54z', fill: c, stroke: '#ffffff', strokeOpacity: .7, strokeWidth: 4 }),
+      orb: h('g', null, h('circle', { cx: 50, cy: 52, r: 30, fill: c }), h('ellipse', { cx: 50, cy: 52, rx: 44, ry: 10, fill: 'none', stroke: '#ffffff', strokeOpacity: .75, strokeWidth: 4 }), h('circle', { cx: 40, cy: 42, r: 7, fill: '#ffffff', opacity: .55 })),
+      drop: h('g', null, h('path', { d: 'M50 12c14 22 28 36 28 52a28 28 0 0 1-56 0c0-16 14-30 28-52z', fill: c }), h('path', { d: 'M40 58a10 10 0 0 0 8 14', stroke: '#ffffff', strokeOpacity: .7, strokeWidth: 5, fill: 'none', strokeLinecap: 'round' })),
+      star: h('path', { d: 'M50 10l11 25 27 3-20 18 6 27-24-14-24 14 6-27-20-18 27-3z', fill: c, stroke: '#ffffff', strokeOpacity: .6, strokeWidth: 3, strokeLinejoin: 'round' })
+    };
+    return h('svg', { viewBox: '0 0 100 100', 'aria-hidden': 'true' }, shapes[props.shape] || shapes.orb);
+  }
+  function GiftCard(props) {
+    return h('div', { className: 'gl-gift' },
+      h('div', { className: 'gl-gift-art', style: { background: props.tint || 'var(--surface-3)' } }, props.image ? h('img', { src: props.image, alt: '' }) : h(GiftArt, { shape: props.shape, hue: props.hue })),
+      h('div', { className: 'gl-gift-name' }, props.name),
+      h('div', { className: 'gl-gift-num' }, '#' + props.number),
+      h('button', { className: cx('gl-btn-reset gl-price', props.owned && 'gl-price-owned'), disabled: props.disabled, onClick: props.onBuy, 'aria-label': props.owned ? 'Куплено' : 'Купить ' + props.name + ' за ' + fmt(props.price) + ' TON' },
+        props.owned ? 'Куплено' : [fmt(props.price), h(Coin, { key: 'c', size: 'bare', px: 13 })]));
+  }
+
+  /* ---------- lobby ---------- */
+  function GameArt(props) {
+    var k = props.kind;
+    if (k === 'candles') {
+      var bars = [[8, 40, 26, 0], [15, 30, 34, 1], [22, 46, 18, 1], [29, 20, 42, 0], [36, 26, 30, 1], [43, 12, 40, 1], [50, 30, 22, 0], [57, 8, 36, 1], [64, 18, 20, 0], [71, 4, 38, 1], [78, 10, 26, 1], [85, 2, 30, 1]];
+      return h('svg', { className: 'gl-game-art', viewBox: '0 0 100 90', preserveAspectRatio: 'none', style: { opacity: .8 } }, bars.map(function (b, i) { return h('rect', { key: i, x: b[0], y: b[1], width: 4.5, height: b[2], rx: .8, fill: b[3] ? 'var(--win)' : 'var(--loss)', opacity: .9 }); }));
+    }
+    if (k === 'pegs') {
+      var pegs = []; for (var r = 0; r < 5; r++) for (var c = 0; c < 4 + (r % 2); c++) pegs.push(h('circle', { key: r + '-' + c, cx: 14 + c * 22 - (r % 2) * 11, cy: 12 + r * 16, r: 3.4, fill: '#ffffff', opacity: .35 }));
+      pegs.push(h('circle', { key: 'b', cx: 64, cy: 44, r: 7, fill: 'var(--ball-hi)' }));
+      return h('svg', { className: 'gl-game-art', viewBox: '0 0 100 100', preserveAspectRatio: 'xMidYMin slice' }, pegs);
+    }
+    if (k === 'track') {
+      return h('svg', { className: 'gl-game-art', viewBox: '0 0 100 100', preserveAspectRatio: 'xMidYMid slice' },
+        h('path', { d: 'M-10 30C30 20 40 60 110 40', stroke: '#000', strokeOpacity: .35, strokeWidth: 12, fill: 'none', strokeLinecap: 'round' }),
+        h('path', { d: 'M-10 70C40 60 60 90 110 70', stroke: '#000', strokeOpacity: .35, strokeWidth: 12, fill: 'none', strokeLinecap: 'round' }),
+        h('circle', { cx: 30, cy: 26, r: 6, fill: 'var(--ball-hi)' }), h('circle', { cx: 74, cy: 74, r: 6, fill: '#ffffff', opacity: .8 }));
+    }
+    if (k === 'spiral') {
+      return h('svg', { className: 'gl-game-art', viewBox: '0 0 100 160', preserveAspectRatio: 'xMidYMid slice' },
+        h('path', { d: 'M20 150C0 90 20 30 70 10', stroke: '#ffffff', strokeOpacity: .5, strokeWidth: 3, strokeDasharray: '1 7', strokeLinecap: 'round', fill: 'none' }),
+        h('circle', { cx: 64, cy: 88, r: 22, fill: 'none', stroke: '#ffffff', strokeOpacity: .35, strokeWidth: 2, strokeDasharray: '4 4' }),
+        h('circle', { cx: 64, cy: 88, r: 12, fill: 'var(--ball)' }));
+    }
+    if (k === 'rings') {
+      return h('svg', { className: 'gl-game-art', viewBox: '0 0 200 100', preserveAspectRatio: 'xMidYMid slice' },
+        h('circle', { cx: 80, cy: 44, r: 26, fill: 'none', stroke: '#ffffff', strokeOpacity: .5, strokeWidth: 6 }),
+        h('circle', { cx: 122, cy: 44, r: 26, fill: 'var(--ball)', opacity: .9 }),
+        h('circle', { cx: 30, cy: 20, r: 10, fill: '#ffffff', opacity: .15 }), h('circle', { cx: 176, cy: 76, r: 14, fill: '#ffffff', opacity: .15 }));
+    }
+    return null;
+  }
+  function GameCard(props) {
+    var tone = props.tone || 'blue';
+    return h('button', { className: cx('gl-btn-reset gl-game', 'gl-game-' + tone, props.centered && 'gl-game-center', props.className), style: props.height ? { minHeight: props.height } : null, onClick: props.onClick },
+      h(GameArt, { kind: props.art }),
+      h('div', { className: 'gl-game-top' }, props.online != null ? h(OnlineBadge, { count: props.online }) : h('span'), props.isNew ? h(Badge, { tone: 'new' }, 'New') : null),
+      h('div', { className: 'gl-game-title' }, props.title),
+      props.subtitle ? h('div', { className: 'gl-game-sub' }, props.subtitle) : null);
+  }
+
+  /* ---------- profile ---------- */
+  function BalanceHero(props) {
+    var acts = props.actions || [{ id: 'stars', label: 'Пополнить Stars', icon: 'star' }, { id: 'ton', label: 'Пополнить TON', icon: 'gem' }, { id: 'gift', label: 'Отправить гифты', icon: 'gift' }];
+    return h('div', { className: 'gl-hero' },
+      h('div', { className: 'gl-hero-label' }, props.label || 'Игровой баланс'),
+      h('div', { className: 'gl-hero-amount' }, fmt(props.value), h(Icon, { name: 'gem', size: 34, strokeWidth: 2.4 })),
+      h('div', { className: 'gl-hero-actions' }, acts.map(function (a) { return h(RoundAction, { key: a.id, icon: a.icon, label: a.label, onClick: function () { props.onAction && props.onAction(a.id); } }); })));
+  }
+  function InventoryPanel(props) {
+    var items = props.items || [], total = items.reduce(function (s, i) { return s + i.price; }, 0);
+    var slots = [items[0], items[1]];
+    return h('section', { className: 'gl-inv' },
+      h('div', { className: 'gl-inv-head' }, h('div', { className: 'gl-inv-title' }, 'Мой Инвентарь'),
+        h('div', { className: 'gl-inv-count' }, items.length + ' Айтемов · ' + fmt(total), h(Coin, { size: 'bare', px: 12 }))),
+      h('div', { className: 'gl-slots' },
+        slots.map(function (it, i) { return h('div', { key: i, className: 'gl-slot', style: it ? { background: it.tint } : null }, it ? h('div', { style: { width: '70%', height: '70%' } }, h(GiftArt, { shape: it.shape, hue: it.hue })) : h(Icon, { name: 'gift', size: 40, strokeWidth: 1.5 })); }),
+        h('button', { className: 'gl-btn-reset gl-slot gl-slot-all', onClick: props.onAll }, h(Icon, { name: 'grid', size: 26 }), 'Все Айтемы')),
+      items.length ? null : h('div', { className: 'gl-hint' }, h('span', null, 'У тебя пока нет айтемов.'), h('button', { className: 'gl-btn-reset', onClick: props.onSend }, 'Отправить гифт', h(Icon, { name: 'chevronRight', size: 16 }))));
+  }
+
+  /* ---------- MiniApp: the assembled demo (play money only) ---------- */
+  var GIFTS = [
+    { id: 1, name: 'Кулон', number: 750, price: 12.4, shape: 'heart', hue: '#ff6fb1', tint: '#3a2a33', type: 'Кулоны', skin: 'Розовый', back: 'Тёмный' },
+    { id: 2, name: 'Кулон', number: 1179, price: 9.8, shape: 'heart', hue: '#8be6ff', tint: '#2a2f3a', type: 'Кулоны', skin: 'Ледяной', back: 'Тёмный' },
+    { id: 3, name: 'Планета', number: 1132, price: 6.2, shape: 'orb', hue: '#6d28d9', tint: '#262c22', type: 'Сферы', skin: 'Фиолетовый', back: 'Зелёный' },
+    { id: 4, name: 'Капля', number: 3004, price: 3.1, shape: 'drop', hue: '#2bb8e6', tint: '#1f2e36', type: 'Капли', skin: 'Ледяной', back: 'Синий' },
+    { id: 5, name: 'Звезда', number: 212, price: 1.9, shape: 'star', hue: '#ffc53d', tint: '#33301f', type: 'Звёзды', skin: 'Золотой', back: 'Тёмный' },
+    { id: 6, name: 'Планета', number: 2939, price: 0.2, shape: 'orb', hue: '#2fd566', tint: '#1e2f25', type: 'Сферы', skin: 'Зелёный', back: 'Зелёный' }
+  ];
+  var BETS = [{ value: 1, price: 0.27 }, { value: 3, price: 0.8 }, { value: 5, price: 1.33 }, { value: 10, price: 2.66 }, { value: 50, price: 13.31 }];
+  var BOTS = ['Red Ballooner', 'frostbyte', 'Лунный кот', 'nightowl', 'Orbit'];
+
+  function Round(props) {
+    var s = useState([{ name: BOTS[0], badge: 'Anon', stake: 71 * 0.266 }]), players = s[0], setPlayers = s[1];
+    var b = useState(5), bet = b[0], setBet = b[1];
+    var cu = useState('ton'), cur = cu[0], setCur = cu[1];
+    var ph = useState('wait'), phase = ph[0], setPhase = ph[1];
+    var cd = useState(0), count = cd[0], setCount = cd[1];
+    var w = useState(null), winner = w[0], setWinner = w[1];
+    var game = useRef(492647 + Math.floor(Math.random() * 900));
+    var pool = players.reduce(function (a, p) { return a + p.stake; }, 0);
+    var mine = players.filter(function (p) { return p.me; })[0];
+    var price = BETS.filter(function (x) { return x.value === bet; })[0].price;
+
+    useEffect(function () {
+      if (phase !== 'count') return;
+      if (count <= 0) {
+        var r = Math.random() * pool, acc = 0, win = players[players.length - 1];
+        for (var i = 0; i < players.length; i++) { acc += players[i].stake; if (r <= acc) { win = players[i]; break; } }
+        setWinner(win.name); setPhase('done');
+        if (win.me) props.onWin(pool);
+        return;
+      }
+      var t = setTimeout(function () { setCount(count - 1); }, 1000);
+      return function () { clearTimeout(t); };
+    }, [phase, count]);
+
+    function send() {
+      if (phase === 'done') { setPlayers([{ name: BOTS[1 + Math.floor(Math.random() * 4)], badge: 'Anon', stake: Math.round(Math.random() * 40 + 3) * 0.266 }]); setWinner(null); setPhase('wait'); game.current++; return; }
+      if (!props.spend(price)) return;
+      setPlayers(function (ps) {
+        var has = ps.some(function (p) { return p.me; });
+        var next = has ? ps.map(function (p) { return p.me ? Object.assign({}, p, { stake: p.stake + price }) : p; }) : ps.concat([{ name: props.me, me: true, stake: price }]);
+        return next;
+      });
+      if (phase === 'wait') { setPhase('count'); setCount(5); }
+    }
+    var status = phase === 'wait' ? ['Ожидание', players.length + '/2 игроков'] : phase === 'count' ? ['Старт через', count + ' c'] : [winner === props.me ? 'Ты выиграл' : 'Победитель', winner === props.me ? '+' + fmt(pool) + ' TON' : winner];
+    return h(React.Fragment, null,
+      h('div', { className: 'gl-spot' }, h(PrizePool, { amount: pool, gameId: game.current, hash: 'eba8…6626' })),
+      h('div', { style: { padding: '8px 16px 20px', display: 'flex', flexDirection: 'column', gap: 8 } }, players.map(function (p) {
+        return h(PlayerRow, { key: p.name, name: p.me ? p.name + ' (ты)' : p.name, badge: p.badge, stake: fmt(p.stake), share: players.length > 1 ? p.stake / pool : null, winner: winner === p.name });
+      })),
+      h('div', { style: { display: 'flex', alignItems: 'flex-end', gap: 10, padding: '0 12px 14px' } },
+        h(CurrencySwitch, { value: cur, onChange: setCur }),
+        h(StatusPanel, { label: status[0], value: status[1] }),
+        h(RoundAction, { label: phase === 'done' ? 'Ещё раз' : mine ? 'Добавить' : 'Отправить', icon: phase === 'done' ? 'swap' : 'plus', onClick: send, disabled: phase === 'count' && count <= 1 })),
+      h(BetRail, { options: BETS, value: bet, onChange: setBet }),
+      h('div', { className: 'gl-demo', style: { padding: '12px 0 16px' } }, 'Демо-режим · игровые монеты'));
+  }
+
+  function MiniApp(props) {
+    var t = useState(props.initialTab || 'pvp'), tab = t[0], setTab = t[1];
+    var b = useState(props.balance != null ? props.balance : 25), bal = b[0], setBal = b[1];
+    var inv = useState([]), items = inv[0], setItems = inv[1];
+    var g = useState(null), game = g[0], setGame = g[1];
+    var st = useState('Гифты'), shopTab = st[0], setShopTab = st[1];
+    var f = useState({}), filters = f[0], setFilters = f[1];
+    var so = useState(false), sortAsc = so[0], setSortAsc = so[1];
+    var mu = useState(true), muted = mu[0], setMuted = mu[1];
+    var ts = useState(null), toast = ts[0], setToast = ts[1];
+    var me = props.username || '@player';
+    useEffect(function () { if (!toast) return; var x = setTimeout(function () { setToast(null); }, 1800); return function () { clearTimeout(x); }; }, [toast]);
+    function spend(n) { if (n > bal + 1e-9) { setToast('Недостаточно средств'); return false; } setBal(function (v) { return Math.round((v - n) * 100) / 100; }); return true; }
+    function topUp() { setBal(function (v) { return Math.round((v + 5) * 100) / 100; }); setToast('+5 TON (демо)'); }
+    function go(id) { setTab(id); setGame(null); }
+
+    var body;
+    if (tab === 'pvp' && game) {
+      body = h(React.Fragment, null,
+        h('div', { className: 'gl-topbar' }, h(BalancePill, { value: bal, onAdd: topUp }), h(IconButton, { icon: 'calendar', label: 'История игр', onClick: function () { setToast('История пока пуста'); } }), h(IconButton, { icon: muted ? 'soundOff' : 'soundOn', label: muted ? 'Включить звук' : 'Выключить звук', pressed: !muted, onClick: function () { setMuted(!muted); } }),
+          h('span', { style: { flex: 1 } }), h('button', { className: 'gl-btn-reset gl-back', onClick: function () { setGame(null); } }, h(Icon, { name: 'chevronLeft', size: 18 }), 'Лобби')),
+        h(Round, { key: game, me: me, spend: spend, onWin: function (n) { setBal(function (v) { return Math.round((v + n) * 100) / 100; }); setToast('Выигрыш +' + fmt(n) + ' TON'); } }));
+    } else if (tab === 'pvp') {
+      body = h(React.Fragment, null, h('h1', { className: 'gl-page-title' }, 'PvP Игра'),
+        h('div', { className: 'gl-lobby' },
+          h(GameCard, { className: 'gl-wide', tone: 'blue', art: 'rings', centered: true, height: 190, online: 9, title: 'Frost Duel', subtitle: 'Дуэль на гифты, TON и Stars', onClick: function () { setGame('duel'); } }),
+          h(GameCard, { className: 'gl-wide', tone: 'violet', art: 'track', centered: true, height: 190, online: 12, title: 'Orbit Race', subtitle: 'Гонка шаров: чья ставка больше — тот ближе', onClick: function () { setGame('race'); } })));
+    } else if (tab === 'solo') {
+      var soon = function () { setToast('Скоро'); };
+      body = h(React.Fragment, null, h('h1', { className: 'gl-page-title' }, 'Solo Game'),
+        h('div', { className: 'gl-lobby' },
+          h(GameCard, { className: 'gl-wide', tone: 'blue', art: 'candles', centered: true, height: 170, isNew: true, title: 'Трейдинг', subtitle: 'Угадай направление графика', onClick: soon }),
+          h(GameCard, { tone: 'blue', art: 'pegs', online: 10, title: 'Plinko', subtitle: 'Плинко с гифтами', onClick: soon }),
+          h(GameCard, { className: 'gl-tall', tone: 'violet', art: 'spiral', online: 11, title: 'Побег', subtitle: 'Выведи шар из спирали', onClick: soon }),
+          h(GameCard, { tone: 'green', art: 'track', online: 11, title: 'Гонка', subtitle: 'Множители на трассе', onClick: soon })));
+    } else if (tab === 'shop') {
+      var list = GIFTS.filter(function (x) { return (!filters.type || x.type === filters.type) && (!filters.skin || x.skin === filters.skin) && (!filters.back || x.back === filters.back); })
+        .sort(function (a, c) { return sortAsc ? a.price - c.price : c.price - a.price; });
+      var uniq = function (k) { return GIFTS.map(function (x) { return x[k]; }).filter(function (v, i, a) { return a.indexOf(v) === i; }); };
+      body = h(React.Fragment, null,
+        h('div', { className: 'gl-shophead' }, h('h1', null, 'Магазин'), h(BalancePill, { value: bal, onAdd: topUp })),
+        h('div', { className: 'gl-sheet' },
+          h(SegmentTabs, { tabs: ['Гифты', 'Лутпаки', 'Апгрейды', 'Ниши'], value: shopTab, onChange: setShopTab }),
+          shopTab !== 'Гифты' ? h('div', { className: 'gl-muted', style: { padding: 40, textAlign: 'center', fontWeight: 600 } }, shopTab + ' скоро появятся') :
+            h(React.Fragment, null,
+              h('div', { className: 'gl-filters' },
+                h(IconButton, { icon: 'sort', label: sortAsc ? 'Сначала дешёвые' : 'Сначала дорогие', pressed: sortAsc, onClick: function () { setSortAsc(!sortAsc); } }),
+                h(FilterSelect, { label: 'Тип', options: uniq('type'), value: filters.type, onChange: function (v) { setFilters(Object.assign({}, filters, { type: v })); } }),
+                h(FilterSelect, { label: 'Скин', options: uniq('skin'), value: filters.skin, onChange: function (v) { setFilters(Object.assign({}, filters, { skin: v })); } }),
+                h(FilterSelect, { label: 'Фон', options: uniq('back'), value: filters.back, onChange: function (v) { setFilters(Object.assign({}, filters, { back: v })); } })),
+              h('div', { className: 'gl-gifts' }, list.map(function (x) {
+                var owned = items.some(function (i) { return i.id === x.id; });
+                return h(GiftCard, Object.assign({ key: x.id }, x, { owned: owned, onBuy: function () { if (owned) return; if (spend(x.price)) { setItems(items.concat([x])); setToast(x.name + ' в инвентаре'); } } }));
+              })))));
+    } else {
+      body = h(React.Fragment, null,
+        h(BalanceHero, { value: bal, onAction: function (id) { if (id === 'gift') { setTab('shop'); return; } topUp(); } }),
+        h('div', { className: 'gl-sheet' },
+          h('div', { className: 'gl-me' }, h(Avatar, { name: me, small: true }), h('div', { className: 'gl-me-name' }, me), h(IconButton, { icon: 'sliders', label: 'Настройки', onClick: function () { setToast('Настройки'); } })),
+          h(InventoryPanel, { items: items, onSend: function () { setTab('shop'); }, onAll: function () { setToast(items.length ? items.map(function (i) { return i.name; }).join(', ') : 'Инвентарь пуст'); } }),
+          h('div', { style: { height: 12 } })));
+    }
+    return h('div', { className: 'gl-app gl-grid-bg', style: props.height ? { height: props.height } : null },
+      h('div', { className: 'gl-app-body' }, body),
+      toast ? h('div', { className: 'gl-toast', role: 'status' }, toast) : null,
+      h(BottomNav, { value: tab, onChange: go }));
+  }
+
+  var G = window.Glint || (window.Glint = {});
+  Object.assign(G, { Icon: Icon, Coin: Coin, Amount: Amount, Avatar: Avatar, BalancePill: BalancePill, IconButton: IconButton, Badge: Badge, OnlineBadge: OnlineBadge, PrizePool: PrizePool, PlayerRow: PlayerRow, StatusPanel: StatusPanel, RoundAction: RoundAction, CurrencySwitch: CurrencySwitch, BetRail: BetRail, BottomNav: BottomNav, SegmentTabs: SegmentTabs, FilterSelect: FilterSelect, GiftArt: GiftArt, GiftCard: GiftCard, GameCard: GameCard, BalanceHero: BalanceHero, InventoryPanel: InventoryPanel, MiniApp: MiniApp });
+})();
+
+</script>
+<script>
+  (function () {
+    var tg = window.Telegram && window.Telegram.WebApp;
+    var user = tg && tg.initDataUnsafe && tg.initDataUnsafe.user;
+    if (tg) {
+      tg.ready();
+      tg.expand();
+      try { tg.setHeaderColor('#0d0d10'); tg.setBackgroundColor('#0d0d10'); } catch (e) {}
+    }
+    var name = user ? (user.username ? '@' + user.username : user.first_name) : '@player';
+    ReactDOM.createRoot(document.getElementById('root')).render(
+      React.createElement(window.Glint.MiniApp, { username: name, balance: 25 })
+    );
+  })();
+</script>
+</body>
+</html>
