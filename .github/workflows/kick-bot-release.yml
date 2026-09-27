@@ -1,0 +1,36 @@
+name: kick_bot release
+
+on:
+  push:
+    branches: [claude/adoring-ramanujan-jouidw]
+    paths:
+      - kick_bot/kick_bot/resources/app.asar
+      - .github/workflows/kick-bot-release.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build zip from v1 with patched app.asar
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download v1 --repo "$GITHUB_REPOSITORY" --pattern kick_bot.zip
+          mkdir -p pkg/kick_bot/resources
+          cp kick_bot/kick_bot/resources/app.asar pkg/kick_bot/resources/app.asar
+          (cd pkg && zip ../kick_bot.zip kick_bot/resources/app.asar)
+          unzip -tq kick_bot.zip
+          unzip -p kick_bot.zip kick_bot/resources/app.asar | cmp - kick_bot/kick_bot/resources/app.asar
+      - name: Publish release v2
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete v2 --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag || true
+          gh release create v2 kick_bot.zip --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" --title "kick_bot (fix follow counter)" \
+            --notes "v1 + фикс счётчика подписок (заменён только resources/app.asar)"
