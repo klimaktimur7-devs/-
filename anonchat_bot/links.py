@@ -7,6 +7,7 @@ from urllib.parse import parse_qs, urlparse
 import httpx
 from telethon import errors, functions, types, utils
 
+from browser import get_browser
 from common import FloodTooLong, human_pause, tg_call
 
 TG_HOSTS = {"t.me", "telegram.me", "telegram.dog", "www.t.me"}
@@ -235,9 +236,33 @@ async def _request_link_webview(client, s, log, link: Link) -> str:
     return res.url
 
 
-async def _follow_webapp(client, s, log, sponsor: Sponsor, webapp_url: str) -> None:
-    """Открывает страницу без браузера и ищет в ней ссылку на канал/бота."""
-    log.info("  спонсор #%d: открываю %s", sponsor.index, _short(_redact(webapp_url)))
+def _pick_candidates(found: list[str], sponsor: Sponsor, s) -> list[str]:
+    """Оставляет только настоящие ссылки на канал/бота/инвайт."""
+    # ссылки на сам Mini App и на бота, который показывает спонсоров, — не спонсоры
+    skip_users = {s.bot_username.lower()}
+    own = parse_link(sponsor.url or "")
+    if own.username:
+        skip_users.add(own.username.lower())
+    candidates = []
+    for raw in found:
+        raw = raw.replace("\\/", "/").rstrip(".,;`'\"")
+        if SKIP_LINK_RE.search(raw) or raw in candidates:
+            continue
+        link = parse_link(raw)
+        if link.kind == "miniapp" or (link.username and link.username.lower() in skip_users):
+            continue
+        if link.kind == "invite" and not INVITE_RE.match(link.invite_hash or ""):
+            continue  # пустой tg://join?invite= — ссылку собирает JS на странице
+        if link.kind == "bot_or_channel" and not USERNAME_RE.match(link.username or ""):
+            continue  # например шаблон t.me/${BOT_NICKNAME} из JS
+        if link.kind not in ("invite", "bot_or_channel"):
+            continue
+        candidates.append(raw)
+    return candidates
+
+
+async def _fetch_page(s, sponsor: Sponsor, webapp_url: str) -> tuple[list[str], str, str]:
+    """Скачивает страницу без браузера: (найденные ссылки, финальный адрес, начало HTML)."""
     found: list[str] = []
     final_url = webapp_url
     snippet = ""
@@ -259,47 +284,46 @@ async def _follow_webapp(client, s, log, sponsor: Sponsor, webapp_url: str) -> N
             _save_page(sponsor, final_url, resp.status_code, body)
     except httpx.HTTPError as e:
         sponsor.details.append(f"HTTP ошибка: {e}")
+    return found, final_url, snippet
 
-    # ссылки на сам Mini App и на бота, который показывает спонсоров, — не спонсоры
-    skip_users = {s.bot_username.lower()}
-    own = parse_link(sponsor.url or "")
-    if own.username:
-        skip_users.add(own.username.lower())
-    candidates = []
-    for raw in found:
-        raw = raw.replace("\\/", "/").rstrip(".,;")
-        if SKIP_LINK_RE.search(raw) or raw in candidates:
-            continue
-        link = parse_link(raw)
-        if link.kind == "miniapp" or (link.username and link.username.lower() in skip_users):
-            continue
-        if link.kind == "invite" and not link.invite_hash:
-            continue  # пустой tg://join?invite= — ссылку собирает JS на странице
-        if link.kind == "invite" and not INVITE_RE.match(link.invite_hash or ""):
-            continue
-        if link.kind == "bot_or_channel" and not USERNAME_RE.match(link.username or ""):
-            continue  # например шаблон t.me/${BOT_NICKNAME} из JS
-        if link.kind not in ("invite", "bot_or_channel"):
-            continue
-        candidates.append(raw)
 
+async def _follow_webapp(client, s, log, sponsor: Sponsor, webapp_url: str) -> None:
+    """Открывает страницу Mini App и ищет, на какой канал/бота она ведёт."""
     sponsor.details.append(f"webapp: {_redact(webapp_url)}")
-    sponsor.details.append(f"финальный адрес: {_redact(final_url)}")
+    candidates: list[str] = []
+    browser_used = False
+
+    if s.show_browser:
+        found = await get_browser(s, log).find_links(webapp_url, f"спонсор #{sponsor.index}")
+        if found is not None:
+            browser_used = True
+            sponsor.details.append(f"браузер поймал: {[_redact(f) for f in found]}")
+            candidates = _pick_candidates(found, sponsor, s)
+
     if not candidates:
-        sponsor.details.append(f"HTML (начало): {snippet[:1500]}")
-        sponsor.manual = True
-        if CLOUDFLARE_RE.search(snippet) or CLOUDFLARE_RE.search(final_url):
-            log.warning("  спонсор #%d: страница за проверкой Cloudflare (крутилка) — нужно открыть вручную",
-                        sponsor.index)
-            _fail(sponsor, "Cloudflare — открыть вручную")
-        else:
-            # Часто засчитывается уже сам переход (так у subgram). Если бот не засчитает —
-            # в следующем раунде скрипт попросит открыть вручную.
-            sponsor.manual = False
-            log.info("  спонсор #%d: страница открыта, ссылку на канал не нашёл (%s)",
-                     sponsor.index, _short(_redact(final_url)))
-            _fail(sponsor, "страница открыта, ссылка не найдена")
-        return
+        log.info("  спонсор #%d: открываю без браузера %s", sponsor.index, _short(_redact(webapp_url)))
+        found, final_url, snippet = await _fetch_page(s, sponsor, webapp_url)
+        sponsor.details.append(f"финальный адрес: {_redact(final_url)}")
+        candidates = _pick_candidates(found, sponsor, s)
+
+        if not candidates:
+            sponsor.details.append(f"HTML (начало): {snippet[:1500]}")
+            if browser_used:
+                sponsor.manual = True
+                log.warning("  спонсор #%d: в браузере перекида не было — нужно открыть вручную", sponsor.index)
+                _fail(sponsor, "перекида не было — открыть вручную")
+            elif CLOUDFLARE_RE.search(snippet) or CLOUDFLARE_RE.search(final_url):
+                sponsor.manual = True
+                log.warning("  спонсор #%d: страница за проверкой Cloudflare (крутилка) — нужно открыть вручную",
+                            sponsor.index)
+                _fail(sponsor, "Cloudflare — открыть вручную")
+            else:
+                # Часто засчитывается уже сам переход (так у subgram). Если бот не засчитает —
+                # в следующем раунде скрипт попросит открыть вручную.
+                log.info("  спонсор #%d: страница открыта, ссылку на канал не нашёл (%s)",
+                         sponsor.index, _short(_redact(final_url)))
+                _fail(sponsor, "страница открыта, ссылка не найдена")
+            return
 
     target = candidates[0]
     sponsor.details.append(f"найдена ссылка: {target}")

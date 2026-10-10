@@ -20,6 +20,13 @@ def _num(name: str, default: float) -> float:
     return float(raw) if raw else default
 
 
+def _flag(name: str, default: bool) -> bool:
+    raw = _str(name).lower()
+    if not raw:
+        return default
+    return raw not in ("0", "false", "no", "off")
+
+
 def _re(name: str, default: str) -> re.Pattern:
     return re.compile(_str(name) or default, re.IGNORECASE)
 
@@ -62,6 +69,9 @@ class Settings:
     account_pause: float
     flood_max_wait: int
     manual_wait: bool
+    show_browser: bool
+    browser_headless: bool
+    browser_wait: float
     proxy: dict | None
     proxy_url: str | None
 
@@ -96,7 +106,10 @@ def load_settings() -> Settings:
         action_delay_max=_num("ACTION_DELAY_MAX", 5),
         account_pause=_num("ACCOUNT_PAUSE", 30),
         flood_max_wait=int(_num("FLOOD_MAX_WAIT", 120)),
-        manual_wait=_str("MANUAL_WAIT", "1") not in ("0", "false", "no", ""),
+        manual_wait=_flag("MANUAL_WAIT", True),
+        show_browser=_flag("SHOW_BROWSER", True),
+        browser_headless=_flag("BROWSER_HEADLESS", False),
+        browser_wait=_num("BROWSER_WAIT", 40),
         proxy=_proxy(proxy_url or ""),
         proxy_url=proxy_url,
     )

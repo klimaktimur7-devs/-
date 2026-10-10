@@ -12,6 +12,7 @@ from datetime import datetime
 
 from telethon import TelegramClient, errors
 
+from browser import close_browser
 from common import CaptchaDetected, FloodTooLong, StepError
 from config import BASE_DIR, load_settings
 from flow import AccountResult, run_account
@@ -164,6 +165,7 @@ async def main() -> None:
         results.append(r)
         print_account_block(r, log)
 
+    await close_browser()
     print_summary(results, log)
     summary_path = BASE_DIR / "logs" / f"summary_{stamp}.json"
     summary_path.write_text(json.dumps([r.to_dict() for r in results], ensure_ascii=False, indent=2),
