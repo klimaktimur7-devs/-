@@ -4,3 +4,9 @@ __pycache__/
 sales_bot/calls/
 sales_bot/do_not_call.txt
 sales_bot.zip
+anonchat_bot/sessions/*
+!anonchat_bot/sessions/.gitkeep
+anonchat_bot/logs/
+*.session
+*.session-journal
+anonchat_bot.zip

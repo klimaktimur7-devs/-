@@ -1,0 +1,4 @@
+telethon>=1.40,<2
+python-dotenv
+httpx[socks]
+python-socks[asyncio]
