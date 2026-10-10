@@ -298,7 +298,17 @@ async def _follow_webapp(client, s, log, sponsor: Sponsor, webapp_url: str) -> N
         if found is not None:
             browser_used = True
             sponsor.details.append(f"браузер поймал: {[_redact(f) for f in found]}")
+            if found:
+                log.info("  спонсор #%d: страница перекинула на %s", sponsor.index,
+                         ", ".join(_short(_redact(f), 80) for f in dict.fromkeys(found)))
             candidates = _pick_candidates(found, sponsor, s)
+            if not candidates and any(parse_link(f).username and
+                                      parse_link(f).username.lower() == s.bot_username.lower() for f in found):
+                # так делает subgram: засчитал переход и вернул обратно в бота
+                log.info("  спонсор #%d: страница вернула обратно в @%s — переход засчитан",
+                         sponsor.index, s.bot_username)
+                _ok(sponsor, "переход засчитан")
+                return
 
     if not candidates:
         log.info("  спонсор #%d: открываю без браузера %s", sponsor.index, _short(_redact(webapp_url)))

@@ -86,6 +86,7 @@ class MiniAppBrowser:
                 self.log.info("  %s: страница не загрузилась: %s", label, str(e).splitlines()[0])
 
         deadline = time.monotonic() + self.s.browser_wait
+        events: list = []
         while not found and time.monotonic() < deadline:
             await asyncio.sleep(1)
             try:
@@ -102,8 +103,30 @@ class MiniAppBrowser:
 
         if found:
             await asyncio.sleep(1.5)  # чтобы было видно, на чём остановилось
+        else:
+            await self._dump(page, label, events)
         await context.close()
         return found
+
+    async def _dump(self, page, label: str, events: list) -> None:
+        """Перекида не было — сохраняем, что было на экране, для разбора."""
+        from config import BASE_DIR
+        pages = BASE_DIR / "logs" / "pages"
+        pages.mkdir(parents=True, exist_ok=True)
+        name = re.sub(r"[^A-Za-z0-9]+", "_", label).strip("_") or "page"
+        try:
+            await page.screenshot(path=str(pages / f"{name}.png"))
+            text = (await page.evaluate("document.body ? document.body.innerText : ''"))[:400]
+            html = await page.content()
+            (pages / f"{name}_browser.html").write_text(
+                re.sub(r"tgWebAppData=[^&#\"']*", "tgWebAppData=<скрыто>", html), encoding="utf-8")
+        except Exception as e:  # noqa: BLE001 — отладка не должна ронять прогон
+            text = f"(не смог снять страницу: {e})"
+        self.log.info("  %s: за %s с перекида не было. Адрес: %s. События Telegram: %s. Текст на экране: %r. "
+                      "Скриншот: logs/pages/%s.png",
+                      label, int(self.s.browser_wait),
+                      re.sub(r"tgWebAppData=[^&#]*", "tgWebAppData=<скрыто>", page.url)[:150],
+                      [e[0] for e in events] or "нет", text.strip(), name)
 
     async def close(self) -> None:
         if self._browser is not None:
