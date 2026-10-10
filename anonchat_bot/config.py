@@ -61,6 +61,7 @@ class Settings:
     action_delay_max: float
     account_pause: float
     flood_max_wait: int
+    manual_wait: bool
     proxy: dict | None
     proxy_url: str | None
 
@@ -95,6 +96,7 @@ def load_settings() -> Settings:
         action_delay_max=_num("ACTION_DELAY_MAX", 5),
         account_pause=_num("ACCOUNT_PAUSE", 30),
         flood_max_wait=int(_num("FLOOD_MAX_WAIT", 120)),
+        manual_wait=_str("MANUAL_WAIT", "1") not in ("0", "false", "no", ""),
         proxy=_proxy(proxy_url or ""),
         proxy_url=proxy_url,
     )

@@ -14,6 +14,10 @@ TG_LINK_RE = re.compile(
     r"""(?:https?://(?:t\.me|telegram\.me|telegram\.dog)/[^\s"'<>\\)]+|tg://(?:resolve|join)\?[^\s"'<>\\)]+)""",
     re.IGNORECASE,
 )
+CLOUDFLARE_RE = re.compile(
+    r"challenges\.cloudflare\.com|cf-turnstile|turnstile|cf_chl|cf-chl|Just a moment|Checking your browser",
+    re.IGNORECASE,
+)
 SKIP_LINK_RE = re.compile(r"t\.me/(?:share|iv|addstickers|addemoji|setlanguage|proxy|socks)\b", re.IGNORECASE)
 WEBVIEW_PLATFORM = "android"
 MOBILE_UA = (
@@ -43,6 +47,7 @@ class Sponsor:
     target: str = ""
     status: str = "не обработан"
     ok: bool = False
+    manual: bool = False  # не прошёлся автоматически — нужно открыть руками в Telegram
     details: list[str] = field(default_factory=list)
 
     @property
@@ -59,6 +64,7 @@ class Sponsor:
             "target": self.target,
             "status": self.status,
             "ok": self.ok,
+            "manual": self.manual,
             "details": self.details,
         }
 
@@ -251,14 +257,22 @@ async def _follow_webapp(client, s, log, sponsor: Sponsor, webapp_url: str) -> N
     except httpx.HTTPError as e:
         sponsor.details.append(f"HTTP ошибка: {e}")
 
+    # ссылки на сам Mini App и на бота, который показывает спонсоров, — не спонсоры
+    skip_users = {s.bot_username.lower()}
     own = parse_link(sponsor.url or "")
+    if own.username:
+        skip_users.add(own.username.lower())
     candidates = []
     for raw in found:
         raw = raw.replace("\\/", "/").rstrip(".,;")
         if SKIP_LINK_RE.search(raw) or raw in candidates:
             continue
         link = parse_link(raw)
-        if link.kind == "miniapp" or (own.username and link.username == own.username):
+        if link.kind == "miniapp" or (link.username and link.username.lower() in skip_users):
+            continue
+        if link.kind == "invite" and not link.invite_hash:
+            continue  # пустой tg://join?invite= — ссылку собирает JS на странице
+        if link.kind not in ("invite", "bot_or_channel") or (link.kind == "bot_or_channel" and not link.username):
             continue
         candidates.append(raw)
 
@@ -266,9 +280,15 @@ async def _follow_webapp(client, s, log, sponsor: Sponsor, webapp_url: str) -> N
     sponsor.details.append(f"финальный адрес: {final_url}")
     if not candidates:
         sponsor.details.append(f"HTML (начало): {snippet[:1500]}")
-        log.warning("  спонсор #%d: в Mini App не нашёл ссылку на канал/бота. Финальный адрес: %s\n%s",
-                    sponsor.index, final_url, snippet[:1500])
-        _fail(sponsor, "ссылка не найдена")
+        sponsor.manual = True
+        if CLOUDFLARE_RE.search(snippet) or CLOUDFLARE_RE.search(final_url):
+            log.warning("  спонсор #%d: страница за проверкой Cloudflare (крутилка) — нужно открыть вручную",
+                        sponsor.index)
+            _fail(sponsor, "Cloudflare — открыть вручную")
+        else:
+            log.warning("  спонсор #%d: в Mini App не нашёл ссылку на канал/бота. Финальный адрес: %s\n%s",
+                        sponsor.index, final_url, snippet[:1500])
+            _fail(sponsor, "ссылка не найдена — открыть вручную")
         return
 
     target = candidates[0]

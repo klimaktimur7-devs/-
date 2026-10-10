@@ -1,5 +1,6 @@
 """Сценарий одного аккаунта: /start → поиск → спонсоры → проверка подписки."""
 import asyncio
+import sys
 import time
 from dataclasses import dataclass, field
 
@@ -213,6 +214,10 @@ async def run_account(client, s, log, result: AccountResult, dry_run: bool) -> N
             await process_sponsor(client, s, log, sp, bot)
         result.sponsors = list(all_sponsors.values())
 
+        manual = [sp for sp in sponsors if sp.manual]
+        if manual and s.manual_wait and sys.stdin and sys.stdin.isatty():
+            await wait_for_manual(result.name, manual, log)
+
         check_btn = find_check_button(gate, s)
         if check_btn is None:
             raise StepError("нет кнопки «Проверить подписку» (поправь CHECK_BUTTON_REGEX)")
@@ -268,6 +273,24 @@ async def run_account(client, s, log, result: AccountResult, dry_run: bool) -> N
 
     result.status = "fail"
     result.reason = f"после {s.max_check_rounds} раундов не засчитаны: {', '.join(result.failed_sponsors)}"
+
+
+async def wait_for_manual(account: str, manual: list[Sponsor], log) -> None:
+    lines = [
+        "",
+        "=" * 60,
+        f"НУЖНО ВРУЧНУЮ — аккаунт {account}",
+        "Открой Telegram на ЭТОМ аккаунте, зайди в бота со спонсорами и нажми кнопки:",
+    ]
+    for sp in manual:
+        lines.append(f"  #{sp.index}  «{sp.text}»  ({sp.status})")
+    lines.append("Дождись, пока докрутится и откроется, подпишись/нажми Start, если попросит.")
+    lines.append("Потом вернись сюда и нажми Enter — скрипт сам нажмёт «Проверить подписку».")
+    lines.append("=" * 60)
+    log.info("\n".join(lines))
+    await asyncio.to_thread(input, ">>> Enter, когда готово: ")
+    for sp in manual:
+        sp.status += ", открыт вручную"
 
 
 def _label(all_sponsors: dict, sp: Sponsor) -> str:
