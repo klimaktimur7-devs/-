@@ -256,6 +256,7 @@ async def _follow_webapp(client, s, log, sponsor: Sponsor, webapp_url: str) -> N
             body = resp.text.replace("\\/", "/").replace("\\u002F", "/").replace("\\u002f", "/")
             snippet = body[:3000]
             found.extend(TG_LINK_RE.findall(body))
+            _save_page(sponsor, final_url, resp.status_code, body)
     except httpx.HTTPError as e:
         sponsor.details.append(f"HTTP ошибка: {e}")
 
@@ -307,6 +308,17 @@ async def _follow_webapp(client, s, log, sponsor: Sponsor, webapp_url: str) -> N
     kind_before = sponsor.kind
     await _process_link(client, s, log, sponsor, parse_link(target), depth=1)
     sponsor.kind = f"{kind_before} → {sponsor.kind}"
+
+
+def _save_page(sponsor: Sponsor, final_url: str, status: int, body: str) -> None:
+    """Сохраняет страницу Mini App в logs/pages/ — чтобы разобрать, как она работает."""
+    from config import BASE_DIR
+    pages = BASE_DIR / "logs" / "pages"
+    pages.mkdir(parents=True, exist_ok=True)
+    host = re.sub(r"[^A-Za-z0-9.-]", "_", urlparse(final_url).hostname or "page")
+    path = pages / f"sponsor{sponsor.index}_{host}.html"
+    path.write_text(f"<!-- {status} {_redact(final_url)} -->\n" + _redact(body), encoding="utf-8")
+    sponsor.details.append(f"страница сохранена: {path}")
 
 
 def _redact(url: str) -> str:
