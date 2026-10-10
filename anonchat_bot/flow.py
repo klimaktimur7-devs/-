@@ -214,7 +214,8 @@ async def run_account(client, s, log, result: AccountResult, dry_run: bool) -> N
             await process_sponsor(client, s, log, sp, bot)
         result.sponsors = list(all_sponsors.values())
 
-        manual = [sp for sp in sponsors if sp.manual]
+        # Cloudflare — сразу; остальные — если бот уже раз их не засчитал
+        manual = [sp for sp in sponsors if sp.manual or (rnd > 1 and not sp.ok)]
         if manual and s.manual_wait and sys.stdin and sys.stdin.isatty():
             await wait_for_manual(result.name, manual, log)
 

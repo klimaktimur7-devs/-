@@ -18,6 +18,8 @@ CLOUDFLARE_RE = re.compile(
     r"challenges\.cloudflare\.com|cf-turnstile|turnstile|cf_chl|cf-chl|Just a moment|Checking your browser",
     re.IGNORECASE,
 )
+USERNAME_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_]{3,31}$")
+INVITE_RE = re.compile(r"^[A-Za-z0-9_-]{8,}$")
 SKIP_LINK_RE = re.compile(r"t\.me/(?:share|iv|addstickers|addemoji|setlanguage|proxy|socks)\b", re.IGNORECASE)
 WEBVIEW_PLATFORM = "android"
 MOBILE_UA = (
@@ -114,7 +116,7 @@ async def process_sponsor(client, s, log, sponsor: Sponsor, gate_bot) -> None:
     try:
         if sponsor.button_type in ("webview", "simple_webview"):
             sponsor.kind = "mini app"
-            sponsor.target = sponsor.url or ""
+            sponsor.target = sponsor.url or f"кнопка «{sponsor.text}»"
             webapp_url = await _request_button_webview(client, s, log, sponsor, gate_bot)
             await _follow_webapp(client, s, log, sponsor, webapp_url)
         elif not sponsor.url:
@@ -235,7 +237,7 @@ async def _request_link_webview(client, s, log, link: Link) -> str:
 
 async def _follow_webapp(client, s, log, sponsor: Sponsor, webapp_url: str) -> None:
     """Открывает страницу без браузера и ищет в ней ссылку на канал/бота."""
-    log.info("  спонсор #%d: открываю %s", sponsor.index, _short(webapp_url))
+    log.info("  спонсор #%d: открываю %s", sponsor.index, _short(_redact(webapp_url)))
     found: list[str] = []
     final_url = webapp_url
     snippet = ""
@@ -272,12 +274,16 @@ async def _follow_webapp(client, s, log, sponsor: Sponsor, webapp_url: str) -> N
             continue
         if link.kind == "invite" and not link.invite_hash:
             continue  # пустой tg://join?invite= — ссылку собирает JS на странице
-        if link.kind not in ("invite", "bot_or_channel") or (link.kind == "bot_or_channel" and not link.username):
+        if link.kind == "invite" and not INVITE_RE.match(link.invite_hash or ""):
+            continue
+        if link.kind == "bot_or_channel" and not USERNAME_RE.match(link.username or ""):
+            continue  # например шаблон t.me/${BOT_NICKNAME} из JS
+        if link.kind not in ("invite", "bot_or_channel"):
             continue
         candidates.append(raw)
 
-    sponsor.details.append(f"webapp: {webapp_url}")
-    sponsor.details.append(f"финальный адрес: {final_url}")
+    sponsor.details.append(f"webapp: {_redact(webapp_url)}")
+    sponsor.details.append(f"финальный адрес: {_redact(final_url)}")
     if not candidates:
         sponsor.details.append(f"HTML (начало): {snippet[:1500]}")
         sponsor.manual = True
@@ -286,9 +292,12 @@ async def _follow_webapp(client, s, log, sponsor: Sponsor, webapp_url: str) -> N
                         sponsor.index)
             _fail(sponsor, "Cloudflare — открыть вручную")
         else:
-            log.warning("  спонсор #%d: в Mini App не нашёл ссылку на канал/бота. Финальный адрес: %s\n%s",
-                        sponsor.index, final_url, snippet[:1500])
-            _fail(sponsor, "ссылка не найдена — открыть вручную")
+            # Часто засчитывается уже сам переход (так у subgram). Если бот не засчитает —
+            # в следующем раунде скрипт попросит открыть вручную.
+            sponsor.manual = False
+            log.info("  спонсор #%d: страница открыта, ссылку на канал не нашёл (%s)",
+                     sponsor.index, _short(_redact(final_url)))
+            _fail(sponsor, "страница открыта, ссылка не найдена")
         return
 
     target = candidates[0]
@@ -298,6 +307,11 @@ async def _follow_webapp(client, s, log, sponsor: Sponsor, webapp_url: str) -> N
     kind_before = sponsor.kind
     await _process_link(client, s, log, sponsor, parse_link(target), depth=1)
     sponsor.kind = f"{kind_before} → {sponsor.kind}"
+
+
+def _redact(url: str) -> str:
+    """Убирает tgWebAppData (данные авторизации аккаунта) из адреса Mini App."""
+    return re.sub(r"tgWebAppData=[^&#]*", "tgWebAppData=<скрыто>", url)
 
 
 def _short(url: str, n: int = 120) -> str:
